@@ -92,3 +92,12 @@ Dark-тема с красными акцентами:
 ## Лицензия
 
 Proprietary, © ООО «ФЭШН ПРО».
+
+---
+
+## Статус разработки
+
+- ✅ Skeleton (monorepo, Prisma, Fastify, Vue 3, pnpm)
+- ✅ Docker (dev/CI), Dikidi integration, auto-setup script
+- ✅ Initial migration + lockfile
+- 🚧 Реализация routes, admin UI, public blocks (в работе)
