@@ -31,62 +31,89 @@ jobs:
       - run: pnpm --filter @molodost/api run db:generate
       - run: pnpm --filter @molodost/api run typecheck
 
-      - name: Copy to server
-        uses: appleboy/scp-action@v0.1.7
+      - name: Deploy on server (git pull + install + migrate + restart)
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          source: "apps/api,packages/shared,package.json,pnpm-workspace.yaml,pnpm-lock.yaml"
-          target: "/tmp/molodost48-build/"
-
-      - name: Install + migrate + restart
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          command_timeout: 10m
           script: |
             set -e
-            # Idempotent bootstrap
+            export DEBIAN_FRONTEND=noninteractive
+
+            # ----- 0. Bootstrap (idempotent) -----
             id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
             mkdir -p /var/www/molodost48/api /var/www/molodost48/web \
                      /var/log/molodost48 \
                      /var/lib/molodost48/uploads /var/lib/molodost48/backups \
                      /etc/molodost48
-            chown -R molodost:molodost /var/www/molodost48 /var/log/molodost48 /var/lib/molodost48 /etc/molodost48 2>/dev/null || true
+            chown -R molodost:molodost /var/www/molodost48 /var/log/molodost48 /var/lib/molodost48 2>/dev/null || true
 
-            STAGE=/var/www/molodost48/api.staging
-            LIVE=/var/www/molodost48/api
-            rm -rf "$STAGE"
-            mkdir -p "$STAGE"
-            cp -a /tmp/molodost48-build/. "$STAGE/"
-            chown -R molodost:molodost "$STAGE"
-            cd "$STAGE"
-
-            # Make sure dependencies are installed (idempotent)
-            sudo -u molodost bash -lc 'cd /var/www/molodost48/api.staging && pnpm install --prod --frozen-lockfile --ignore-scripts'
-
-            # Apply migrations
-            sudo -u molodost bash -lc 'cd /var/www/molodost48/api.staging/apps/api && pnpm exec prisma migrate deploy'
-
-            # Atomic swap
-            rm -rf "$LIVE"
-            mv "$STAGE" "$LIVE"
-
-            # Ensure systemd unit exists
-            if [ ! -f /etc/systemd/system/molodost48-api.service ]; then
-              echo "systemd unit missing — bootstrap manually"
-              exit 1
+            # ----- 1. Clone or pull source -----
+            cd /var/www/molodost48
+            if [ ! -d api/.git ]; then
+              rm -rf api
+              sudo -u molodost git clone --depth 1 --branch main \
+                git@github.com:Barsick132/salon-molodost48.git api
+            else
+              cd api
+              sudo -u molodost git fetch --depth 1 origin main
+              sudo -u molodost git reset --hard origin/main
+              cd ..
             fi
-            systemctl daemon-reload
-            systemctl enable molodost48-api 2>/dev/null || true
+            chown -R molodost:molodost api
+
+            # ----- 2. Install prod deps -----
+            cd /var/www/molodost48/api
+            sudo -u molodost bash -lc 'cd /var/www/molodost48/api && pnpm install --prod --frozen-lockfile --ignore-scripts'
+
+            # ----- 3. Apply migrations -----
+            sudo -u molodost bash -lc 'cd /var/www/molodost48/api/apps/api && pnpm exec prisma migrate deploy'
+
+            # ----- 4. Ensure systemd unit exists -----
+            if [ ! -f /etc/systemd/system/molodost48-api.service ]; then
+              cat > /etc/systemd/system/molodost48-api.service <<'UNIT'
+            [Unit]
+            Description=molodost48 API (Fastify + Prisma)
+            After=network.target postgresql.service
+            Wants=postgresql.service
+
+            [Service]
+            Type=simple
+            User=molodost
+            Group=molodost
+            WorkingDirectory=/var/www/molodost48/api/apps/api
+            EnvironmentFile=/etc/molodost48/api.env
+            ExecStart=/usr/bin/node --import tsx/esm src/index.ts
+            Restart=on-failure
+            RestartSec=5
+            StandardOutput=journal
+            StandardError=journal
+            SyslogIdentifier=molodost48-api
+
+            NoNewPrivileges=true
+            PrivateTmp=true
+            ProtectSystem=strict
+            ProtectHome=true
+            ReadWritePaths=/var/lib/molodost48/uploads /var/lib/molodost48/backups /var/log/molodost48
+            MemoryMax=384M
+            TasksMax=64
+
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+              systemctl daemon-reload
+              systemctl enable molodost48-api
+            fi
+
+            # ----- 5. Restart -----
             systemctl restart molodost48-api
             sleep 3
             systemctl is-active molodost48-api
 
       - name: Smoke test
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -94,14 +121,7 @@ jobs:
           script: |
             sleep 2
             echo "=== /healthz ==="
-            curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK || (echo FAIL; journalctl -u molodost48-api -n 80 --no-pager; exit 1)
+            curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK || \
+              (echo FAIL; journalctl -u molodost48-api -n 80 --no-pager; exit 1)
             echo "=== /readyz ==="
             curl -fsS --max-time 5 http://127.0.0.1:3000/readyz && echo OK || echo READY_WARN
-
-      - name: Cleanup
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          script: rm -rf /tmp/molodost48-build

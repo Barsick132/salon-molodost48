@@ -31,21 +31,19 @@ jobs:
       - run: pnpm --filter @molodost/web run typecheck
       - run: pnpm --filter @molodost/web run build
 
-      - name: Upload built dist
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          source: "apps/web/dist"
-          target: "/tmp/molodost48-web-build/"
+      - name: Build tarball
+        run: |
+          cd apps/web
+          tar -czf /tmp/molodost48-web-dist.tar.gz dist
+          ls -lh /tmp/molodost48-web-dist.tar.gz
 
-      - name: Atomic swap + reload nginx
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Upload + extract + reload nginx
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          command_timeout: 5m
           script: |
             set -e
             id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
@@ -55,23 +53,18 @@ jobs:
             STAGE=/var/www/molodost48/web.staging
             LIVE=/var/www/molodost48/web
             rm -rf "$STAGE"
-            cp -a /tmp/molodost48-web-build/dist "$STAGE"
+            mkdir -p "$STAGE"
+            tar -xzf /tmp/molodost48-web-dist.tar.gz -C "$STAGE"
             chown -R molodost:molodost "$STAGE"
+
+            # Atomic swap
             rm -rf "$LIVE"
             mv "$STAGE" "$LIVE"
             test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
 
             # Nginx site (idempotent)
             if [ ! -f /etc/nginx/sites-enabled/molodost48 ]; then
-              echo "nginx site not configured — bootstrap manually"
+              echo "nginx site not yet configured — skipping reload"
             else
               nginx -t && systemctl reload nginx
             fi
-
-      - name: Cleanup
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          script: rm -rf /tmp/molodost48-web-build
