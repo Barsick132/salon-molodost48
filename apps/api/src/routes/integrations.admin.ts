@@ -39,7 +39,7 @@ const plugin: FastifyPluginAsync = async (app) => {
           type: 'booking',
           enabled: parsed.data.enabled ?? true,
           config: parsed.data as object,
-          updatedBy: req.adminUser.id,
+          updatedBy: req.adminUser!.id,
         },
       });
     } else {
@@ -48,13 +48,13 @@ const plugin: FastifyPluginAsync = async (app) => {
         data: {
           enabled: parsed.data.enabled ?? current.enabled,
           config: { ...(current.config as object), ...parsed.data } as object,
-          updatedBy: req.adminUser.id,
+          updatedBy: req.adminUser!.id,
         },
       });
     }
     await app.prisma.auditLog.create({
       data: {
-        userId: req.adminUser.id,
+        userId: req.adminUser!.id,
         action: 'integration.update',
         entity: 'IntegrationConfig',
         entityId: 'dikidi',

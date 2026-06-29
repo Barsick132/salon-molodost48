@@ -15,9 +15,14 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, 'body'> {
-  body?: unknown;
+type JsonValue = unknown;
+interface RequestOptions {
+  body?: JsonValue | FormData;
   query?: Record<string, string | number | boolean | undefined | null>;
+  headers?: Record<string, string>;
+  method?: string;
+  signal?: AbortSignal;
+  cache?: RequestCache;
 }
 
 export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -34,14 +39,19 @@ export async function api<T = unknown>(path: string, opts: RequestOptions = {}):
   }
 
   const init: RequestInit = {
-    ...opts,
+    method: opts.method ?? 'GET',
     headers,
     credentials: 'include',
+    signal: opts.signal,
+    cache: opts.cache,
   };
-  if (opts.body !== undefined && !(opts.body instanceof FormData)) {
-    init.body = JSON.stringify(opts.body);
-  } else if (opts.body instanceof FormData) {
-    init.body = opts.body;
+
+  if (opts.body !== undefined) {
+    if (opts.body instanceof FormData) {
+      init.body = opts.body;
+    } else {
+      init.body = JSON.stringify(opts.body);
+    }
   }
 
   const res = await fetch(url.toString(), init);

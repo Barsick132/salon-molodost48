@@ -60,3 +60,8 @@ backups/
 Dockerfile.local
 docker-compose.override.yml
 .docker/
+# TypeScript compiled output (built at deploy time, not in repo)
+packages/shared/src/*.js
+packages/shared/src/*.js.map
+packages/shared/src/*.d.ts
+**/*.tsbuildinfo

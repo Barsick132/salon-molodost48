@@ -24,7 +24,9 @@ function loadEnv() {
     const raw = readFileSync(resolve(process.cwd(), '.env'), 'utf8');
     for (const line of raw.split('\n')) {
       const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+      if (m && m[1] && m[2] !== undefined && !process.env[m[1]]) {
+        process.env[m[1]] = m[2];
+      }
     }
   } catch {
     /* no .env — rely on shell env */

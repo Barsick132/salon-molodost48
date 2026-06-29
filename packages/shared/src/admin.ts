@@ -19,7 +19,7 @@ export const AdminLoginRequest = z.object({
 });
 
 export const AdminLoginResponse = z.object({
-  user: AdminUser.omit({ passwordHash: true }),
+  user: AdminUser,
   expiresAt: z.string(),
 });
 

@@ -26,8 +26,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @molodost/api run build
       - run: pnpm --filter @molodost/api run db:generate
+      - run: pnpm --filter @molodost/api run typecheck
 
       - name: Copy to server
         uses: appleboy/scp-action@v0.1.7
