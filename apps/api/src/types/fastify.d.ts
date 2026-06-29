@@ -30,6 +30,11 @@ declare module 'fastify' {
         reply: import('fastify').FastifyReply,
       ): Promise<void>;
     };
+
+    /**
+     * Runtime config — registered by `apps/api/src/plugins/config.ts`.
+     */
+    config: import('../config.js').config;
   }
 
   interface FastifyRequest {
