@@ -9,6 +9,8 @@ on:
       - '.github/workflows/deploy-web.yml'
       - 'package.json'
       - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -26,6 +28,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @molodost/web run typecheck
       - run: pnpm --filter @molodost/web run build
 
       - name: Upload built dist
@@ -35,9 +38,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
           source: "apps/web/dist"
-          target: "/tmp/molodost48-build/web/"
+          target: "/tmp/molodost48-web-build/"
 
-      - name: Install on server (atomic)
+      - name: Atomic swap + reload nginx
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -45,25 +48,25 @@ jobs:
           key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
           script: |
             set -e
+            id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
+            mkdir -p /var/www/molodost48/web
+            chown -R molodost:molodost /var/www/molodost48/web
+
             STAGE=/var/www/molodost48/web.staging
             LIVE=/var/www/molodost48/web
-
             rm -rf "$STAGE"
-            cp -a /tmp/molodost48-build/web/dist "$STAGE"
+            cp -a /tmp/molodost48-web-build/dist "$STAGE"
             chown -R molodost:molodost "$STAGE"
             rm -rf "$LIVE"
             mv "$STAGE" "$LIVE"
-
-            # Quick sanity
             test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
 
-      - name: Reload nginx
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          script: sudo nginx -t && sudo systemctl reload nginx
+            # Nginx site (idempotent)
+            if [ ! -f /etc/nginx/sites-enabled/molodost48 ]; then
+              echo "nginx site not configured — bootstrap manually"
+            else
+              nginx -t && systemctl reload nginx
+            fi
 
       - name: Cleanup
         uses: appleboy/ssh-action@v1.0.3
@@ -71,4 +74,4 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          script: rm -rf /tmp/molodost48-build
+          script: rm -rf /tmp/molodost48-web-build
