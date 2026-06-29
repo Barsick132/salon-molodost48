@@ -1,0 +1,340 @@
+// Prisma schema for molodost48.
+//
+// Conventions:
+// - All tables have `id` (cuid), `createdAt`, `updatedAt`.
+// - Soft delete via `isActive` / `isApproved` flags where appropriate.
+// - For full DB initialisation run: pnpm db:migrate && pnpm db:seed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Site singleton + navigation
+// ============================================================
+
+model SiteSettings {
+  id                   String   @id @default("singleton")
+  brandName            String   @default("Молодость")
+  brandTagline         String   @default("Салон красоты бизнес-класса")
+  logoMediaId          String?
+  faviconMediaId       String?
+
+  address              String   @default("г. Липецк, ул. Пушкина 4, пом. 6")
+  mapEmbedUrl          String   @default("")
+  phones               String[] @default(["8 (904) 219-19-99", "8 (474) 271-93-80"])
+  email                String   @default("support@molodost48.ru")
+  workingHours         Json     @default("[]")
+  socials              Json     @default("{}")
+  bookingUrl           String   @default("https://dikidi.ru/1475188")
+
+  seoTitle             String   @default("Молодость — салон красоты в Липецке")
+  seoDescription       String   @default("")
+  seoOgImageId         String?
+  robotsTxt            String   @default("User-agent: *\nAllow: /")
+
+  accentColor          String   @default("#E11D48")
+  fontFamily           String   @default("Inter")
+  enableStructuredData Boolean  @default(true)
+
+  updatedAt            DateTime @updatedAt
+}
+
+model NavItem {
+  id         String   @id @default(cuid())
+  label      String
+  href       String
+  order      Int      @default(0)
+  isExternal Boolean  @default(false)
+  parentId   String?
+  parent     NavItem? @relation("NavTree", fields: [parentId], references: [id])
+  children   NavItem[] @relation("NavTree")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ============================================================
+// Landing blocks (toggle + drag-and-drop order)
+// ============================================================
+
+model Block {
+  id      String  @id @default(cuid())
+  type    String  // hero | about | services | masters | promotions | gallery | rooms | reviews | faq | vacancies | contacts
+  enabled Boolean @default(true)
+  order   Int     @default(0)
+  payload Json    @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ============================================================
+// Service catalog
+// ============================================================
+
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  icon        String   @default("")
+  description String   @default("")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  services    Service[]
+
+  @@index([order])
+}
+
+model Service {
+  id               String   @id @default(cuid())
+  categoryId       String
+  category         ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name             String
+  description      String   @default("")
+  priceFrom        Int?
+  priceTo          Int?
+  durationMinutes  Int?
+  isPopular        Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  order            Int      @default(0)
+  externalId       String?  // for Yandex import de-dup
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([categoryId, externalId])
+  @@index([categoryId, order])
+  @@index([isActive, isPopular])
+}
+
+// ============================================================
+// Masters
+// ============================================================
+
+model Master {
+  id               String   @id @default(cuid())
+  name             String
+  role             String   @default("")
+  bio              String   @default("")
+  experienceYears  Int?
+  avatarMediaId    String?
+  portfolioMediaIds String[] @default([])
+  categoryIds      String[] @default([])
+  order            Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([order, isActive])
+}
+
+// ============================================================
+// Promotions
+// ============================================================
+
+model Promotion {
+  id              String   @id @default(cuid())
+  title           String
+  description     String   @default("")
+  coverMediaId    String?
+  serviceIds      String[] @default([])
+  discountPercent Int?
+  discountFixed   Int?
+  validFrom       DateTime?
+  validUntil      DateTime?
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive, validUntil])
+}
+
+// ============================================================
+// Gallery
+// ============================================================
+
+model GalleryCategory {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items     GalleryItem[]
+}
+
+model GalleryItem {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mediaId     String
+  caption     String   @default("")
+  masterId    String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId, order])
+}
+
+// ============================================================
+// Rooms / interior
+// ============================================================
+
+model Room {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  mediaIds    String[] @default([])
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ============================================================
+// Reviews
+// ============================================================
+
+model Review {
+  id           String   @id @default(cuid())
+  authorName   String
+  rating       Int
+  text         String
+  source       String   @default("")
+  avatarMediaId String?
+  publishedAt  DateTime @default(now())
+  isApproved   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isApproved, publishedAt])
+}
+
+// ============================================================
+// FAQ
+// ============================================================
+
+model Faq {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String   @default("")
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ============================================================
+// Vacancies
+// ============================================================
+
+model Vacancy {
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @default("")
+  requirements  String   @default("")
+  salaryFrom    Int?
+  salaryTo      Int?
+  contactEmail  String?
+  contactPhone  String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, createdAt])
+}
+
+// ============================================================
+// Static pages
+// ============================================================
+
+model StaticPage {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  body        String   @default("")
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// Media library
+// ============================================================
+
+model Media {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  alt          String   @default("")
+  storagePath  String   // relative to MEDIA_ROOT
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ============================================================
+// Admin auth
+// ============================================================
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  displayName  String    @default("")
+  passwordHash String
+  role         String    @default("admin")
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+  sessions     AdminSession[]
+}
+
+model AdminSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// Audit log
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // e.g. "service.update"
+  entity     String   // e.g. "Service"
+  entityId   String?
+  diff       Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}

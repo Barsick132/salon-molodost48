@@ -1,0 +1,29 @@
+{
+  "name": "@molodost/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "echo 'lint: vue-tsc --noEmit' && vue-tsc --noEmit",
+    "test": "echo 'no tests yet'"
+  },
+  "dependencies": {
+    "@molodost/shared": "workspace:*",
+    "@vueuse/core": "^10.11.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.34",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@vitejs/plugin-vue": "^5.1.0",
+    "typescript": "^5.5.4",
+    "unplugin-vue-router": "^0.7.0",
+    "vite": "^5.3.4",
+    "vue-tsc": "^2.0.29"
+  }
+}

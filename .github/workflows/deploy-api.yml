@@ -1,0 +1,90 @@
+name: deploy-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-api.yml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @molodost/api run build
+      - run: pnpm --filter @molodost/api run db:generate
+
+      - name: Copy to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          source: "apps/api/dist,apps/api/package.json,apps/api/prisma,packages/shared/dist"
+          target: "/tmp/molodost48-build/api/"
+          strip_components: 0
+
+      - name: Install on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: |
+            set -e
+            # Atomic swap: stage, then move into place, then restart
+            STAGE=/var/www/molodost48/api.staging
+            LIVE=/var/www/molodost48/api
+
+            rm -rf "$STAGE"
+            mkdir -p "$STAGE"
+            cp -a /tmp/molodost48-build/api/. "$STAGE/"
+            cd "$STAGE"
+
+            # Install prod deps only
+            pnpm install --prod --frozen-lockfile --ignore-scripts
+
+            # Run pending migrations
+            pnpm exec prisma migrate deploy
+
+            # Atomic move
+            chown -R molodost:molodost "$STAGE"
+            rm -rf "$LIVE"
+            mv "$STAGE" "$LIVE"
+
+            # Restart service
+            sudo systemctl restart molodost48-api
+            sleep 2
+            systemctl is-active molodost48-api
+
+      - name: Verify health
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: |
+            curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK || (echo FAIL; journalctl -u molodost48-api -n 50 --no-pager; exit 1)
+
+      - name: Cleanup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: rm -rf /tmp/molodost48-build

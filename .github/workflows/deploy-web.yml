@@ -1,0 +1,74 @@
+name: deploy-web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-web.yml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @molodost/web run build
+
+      - name: Upload built dist
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          source: "apps/web/dist"
+          target: "/tmp/molodost48-build/web/"
+
+      - name: Install on server (atomic)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: |
+            set -e
+            STAGE=/var/www/molodost48/web.staging
+            LIVE=/var/www/molodost48/web
+
+            rm -rf "$STAGE"
+            cp -a /tmp/molodost48-build/web/dist "$STAGE"
+            chown -R molodost:molodost "$STAGE"
+            rm -rf "$LIVE"
+            mv "$STAGE" "$LIVE"
+
+            # Quick sanity
+            test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
+
+      - name: Reload nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: sudo nginx -t && sudo systemctl reload nginx
+
+      - name: Cleanup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          script: rm -rf /tmp/molodost48-build

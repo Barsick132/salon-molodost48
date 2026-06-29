@@ -1,0 +1,27 @@
+{
+  "name": "salon-molodost48",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Сайт + админка салона красоты «Молодость» (Липецк)",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "clean": "pnpm -r exec rm -rf dist node_modules/.cache && rm -rf node_modules",
+    "db:migrate": "pnpm --filter @molodost/api run db:migrate",
+    "db:seed": "pnpm --filter @molodost/api run db:seed",
+    "db:reset": "pnpm --filter @molodost/api run db:reset"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "prettier": "^3.3.3",
+    "@types/node": "^20.14.10"
+  }
+}
