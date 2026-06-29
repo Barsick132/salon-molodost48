@@ -324,6 +324,24 @@ model AdminSession {
 // Audit log
 // ============================================================
 
+// ============================================================
+// Integrations (Dikidi, maps, messengers, etc.)
+// ============================================================
+
+model IntegrationConfig {
+  id             String   @id // e.g. "dikidi", "yandex-maps"
+  type           String   // "booking" | "maps" | "messenger" | "email"
+  enabled        Boolean  @default(false)
+  config         Json     @default("{}") // public-visible config
+  credentials    Json?    // sensitive (API tokens) — should be encrypted in prod
+  lastSyncAt     DateTime?
+  lastSyncStatus String?  // "ok" | "error: <message>"
+  updatedAt      DateTime @updatedAt
+  updatedBy      String?
+
+  @@index([type])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?

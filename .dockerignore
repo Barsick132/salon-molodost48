@@ -1,0 +1,27 @@
+# Root .dockerignore — applies to image builds where COPY . is used.
+
+node_modules
+**/node_modules
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.log
+logs
+coverage
+.nyc_output
+dist
+build
+.cache
+.env
+.env.*
+!.env.example
+uploads
+backups
+*.bundle
+.DS_Store
+docs
+README.md
+CLAUDE.md
+AGENTS.md

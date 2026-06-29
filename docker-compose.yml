@@ -1,0 +1,82 @@
+# docker-compose for local development only.
+# Production deploys natively via systemd (see deploy/systemd/).
+#
+# Usage:
+#   cp apps/api/.env.example apps/api/.env
+#   docker compose up -d
+#   docker compose exec api pnpm db:migrate:dev
+#   docker compose exec api pnpm db:seed
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: molodost48-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: molodost
+      POSTGRES_PASSWORD: molodost
+      POSTGRES_DB: molodost48
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - molodost48-dev-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U molodost -d molodost48"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: molodost48-api-dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://molodost:molodost@db:5432/molodost48?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-please-do-not-use-in-prod}
+      COOKIE_DOMAIN:
+      COOKIE_SECURE: "false"
+      MEDIA_ROOT: /var/lib/molodost48/uploads
+      MEDIA_PUBLIC_BASE: /media
+      MAX_UPLOAD_BYTES: "10485760"
+      BACKUP_DIR: /var/lib/molodost48/backups
+      BACKUP_RETENTION_DAYS: "7"
+      ADMIN_BOOTSTRAP_EMAIL: admin@molodost48.ru
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-admin12345}
+      ADMIN_BOOTSTRAP_NAME: Администратор
+    env_file:
+      - path: ./apps/api/.env
+        required: false
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - molodost48-dev-uploads:/var/lib/molodost48/uploads
+      - molodost48-dev-backups:/var/lib/molodost48/backups
+    command: ["node", "--watch", "dist/index.js"]
+    profiles:
+      - dev-with-build  # only auto-start if profile enabled
+
+  # Optional: nginx for dev (matches prod routing). Comment out if you want vite proxy instead.
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: molodost48-nginx-dev
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./deploy/nginx/molodost48-dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - molodost48-dev-uploads:/var/lib/molodost48/uploads:ro
+
+volumes:
+  molodost48-dev-db:
+  molodost48-dev-uploads:
+  molodost48-dev-backups:

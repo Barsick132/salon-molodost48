@@ -55,3 +55,8 @@ backups/
 
 # Bundle artifact (temporary)
 *.bundle
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.docker/

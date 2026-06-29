@@ -52,6 +52,16 @@ pnpm dev          # параллельный запуск api (3000) + web (5173
 - `apps/api` → build → systemd `molodost48-api.service` на сервере
 - `apps/web` → build → статика в `/var/www/molodost48/web`
 
+**Docker (опционально).** Есть `Dockerfile.api` (multi-stage, alpine, non-root, healthcheck, tini) и `docker-compose.yml` для локальной разработки. **На проде деплой нативный через systemd** — на 1 GB RAM Docker daemon съест ~150 MB overhead, что нерационально, когда Postgres уже нативно. Используй Docker для dev и CI/CD. См. комментарии в `Dockerfile`.
+
+**Автоустановка с нуля.** `deploy/scripts/setup-server.sh` — idempotent bash-скрипт, который развернёт весь стек на свежем Ubuntu 22.04 за один запуск (Node 20, PostgreSQL 16 с low-end tuning, nginx, systemd unit, UFW, fail2ban, logrotate, backup cron).
+
+## Интеграции
+
+- **Dikidi** — онлайн-запись: виджет + deep-link + sticky mobile CTA + заглушка под Business API sync. См. [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+- Яндекс.Справочник — импорт каталога услуг (`/admin/import`).
+- Yandex.Maps, Telegram, WhatsApp, SMTP — каркас готов (`IntegrationConfig`); подключаем по запросу.
+
 ## Дизайн-концепт
 
 Dark-тема с красными акцентами:

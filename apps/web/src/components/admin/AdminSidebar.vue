@@ -16,6 +16,7 @@ const items = [
   { to: '/admin/navigation', label: 'Навигация', icon: '◧' },
   { to: '/admin/media', label: 'Медиа-библиотека', icon: '◧' },
   { to: '/admin/import', label: 'Импорт Yandex', icon: '◧' },
+  { to: '/admin/integrations', label: 'Интеграции', icon: '◧' },
   { to: '/admin/settings', label: 'Настройки', icon: '◧' },
   { to: '/admin/users', label: 'Пользователи', icon: '◧' },
   { to: '/admin/audit', label: 'Audit log', icon: '◧' },

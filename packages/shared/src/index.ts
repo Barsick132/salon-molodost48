@@ -9,3 +9,4 @@ export * from './service.js';
 export * from './site.js';
 export * from './admin.js';
 export * from './api-responses.js';
+export * from './integrations.js';

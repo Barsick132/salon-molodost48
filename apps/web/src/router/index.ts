@@ -47,6 +47,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'users', name: 'admin-users', component: () => import('@/pages/admin/UsersPage.vue') },
       { path: 'audit', name: 'admin-audit', component: () => import('@/pages/admin/AuditPage.vue') },
       { path: 'import', name: 'admin-import', component: () => import('@/pages/admin/ImportPage.vue') },
+      { path: 'integrations', name: 'admin-integrations', component: () => import('@/pages/admin/IntegrationsPage.vue') },
     ],
   },
   { path: '/:catchAll(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue') },

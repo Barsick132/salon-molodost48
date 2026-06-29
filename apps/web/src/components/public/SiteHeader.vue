@@ -1,5 +1,10 @@
 <script setup lang="ts">
-// Public header — placeholder. Will fetch site settings + nav from API.
+import { onMounted } from 'vue';
+import { useIntegrationsStore } from '@/stores/integrations';
+import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
+
+const integrations = useIntegrationsStore();
+onMounted(() => integrations.load());
 </script>
 
 <template>
@@ -11,6 +16,9 @@
         <a href="/masters">Мастера</a>
         <a href="/contacts">Контакты</a>
       </nav>
+      <div class="cta">
+        <DikidiBookingButton variant="primary" size="sm" />
+      </div>
     </div>
   </header>
 </template>
@@ -31,6 +39,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-6);
 }
 .logo {
   font-size: var(--font-size-xl);
@@ -40,12 +49,17 @@
 nav {
   display: flex;
   gap: var(--space-6);
+  flex: 1;
+  margin-left: var(--space-8);
 }
 nav a {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
-nav a:hover {
-  color: var(--color-accent);
+nav a:hover { color: var(--color-accent); }
+.cta { display: flex; gap: var(--space-3); }
+
+@media (max-width: 768px) {
+  nav { display: none; }
 }
 </style>

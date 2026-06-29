@@ -94,6 +94,31 @@ async function seedBlocks() {
   }
 }
 
+async function seedIntegrations() {
+  await prisma.integrationConfig.upsert({
+    where: { id: 'dikidi' },
+    update: {},
+    create: {
+      id: 'dikidi',
+      type: 'booking',
+      enabled: true,
+      config: {
+        enabled: true,
+        publicPageUrl: 'https://dikidi.ru/1475188',
+        businessId: '1475188',
+        widgetUrl: 'https://dikidi.ru/widget/1475188',
+        buttonLabel: 'Записаться',
+        stickyMobile: true,
+        apiToken: '',
+        lastSyncAt: null,
+      },
+      credentials: {},
+      lastSyncAt: null,
+      lastSyncStatus: null,
+    },
+  });
+}
+
 async function seedBootstrapAdmin() {
   const userCount = await prisma.adminUser.count();
   if (userCount > 0) return;
@@ -125,6 +150,8 @@ async function main() {
   console.log(`  ✓ ServiceCategories (${DEFAULT_CATEGORIES.length})`);
   await seedBlocks();
   console.log('  ✓ Blocks (default set)');
+  await seedIntegrations();
+  console.log('  ✓ Integrations (dikidi)');
   await seedBootstrapAdmin();
   console.log('Done.');
 }
