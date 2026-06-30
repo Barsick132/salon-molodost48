@@ -30,6 +30,7 @@ jobs:
           DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
         run: |
           set -e
+          mkdir -p ~/.ssh
           # Tell GitHub to mask sanitized values in any subsequent log line.
           echo "::add-mask::$(printf '%s' "$SERVER_HOST" | LC_ALL=C tr -cd '0-9.')"
           echo "::add-mask::$(printf '%s' "$SERVER_USER" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')"
