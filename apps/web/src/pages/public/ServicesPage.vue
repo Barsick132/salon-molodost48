@@ -24,7 +24,6 @@ interface CategoryWithServices {
 
 const categories = ref<CategoryWithServices[]>([]);
 const activeSlug = ref<string>('');
-const expanded = ref<Set<string>>(new Set());
 const loading = ref(true);
 const error = ref('');
 const query = ref('');
@@ -81,18 +80,6 @@ function setActive(slug: string) {
     const top = el.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top, behavior: 'smooth' });
   }
-}
-
-function toggleService(id: string) {
-  if (expanded.value.has(id)) {
-    expanded.value.delete(id);
-  } else {
-    expanded.value.add(id);
-  }
-}
-
-function isExpanded(id: string): boolean {
-  return expanded.value.has(id);
 }
 
 // Reveal animation
@@ -242,10 +229,9 @@ function registerReveal(el: unknown) {
             <article
               v-for="(svc, idx) in cat.services"
               :key="svc.id"
-              :class="['service-row', { 'service-row--open': isExpanded(svc.id) }]"
-              :style="{ '--delay': `${idx * 20}ms` }"
+              class="service-row"
             >
-              <button class="service-row__main" @click="toggleService(svc.id)">
+              <div class="service-row__main">
                 <span class="service-row__num">{{ String(idx + 1).padStart(2, '0') }}</span>
                 <span class="service-row__name">{{ svc.name }}</span>
                 <span class="service-row__meta">
@@ -257,30 +243,8 @@ function registerReveal(el: unknown) {
                     {{ formatDuration(svc) }}
                   </span>
                   <span class="service-row__price">{{ formatPrice(svc) }}</span>
-                  <span class="service-row__arrow" :class="{ 'service-row__arrow--open': isExpanded(svc.id) }">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                  </span>
                 </span>
-              </button>
-              <Transition name="expand">
-                <div v-if="isExpanded(svc.id) || svc.description" class="service-row__details" :class="{ 'service-row__details--collapsed': !isExpanded(svc.id) && !svc.description }">
-                  <div class="service-row__details-inner">
-                    <p v-if="svc.description" class="service-row__desc">{{ svc.description }}</p>
-                    <a
-                      v-if="isExpanded(svc.id)"
-                      :href="`https://dikidi.ru/#widget=212727`"
-                      class="service-row__book"
-                    >
-                      Записаться
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </a>
-                  </div>
-                </div>
-              </Transition>
+              </div>
             </article>
           </div>
         </div>
@@ -519,8 +483,6 @@ function registerReveal(el: unknown) {
   transition: background var(--duration-fast) var(--ease-out);
 }
 .service-row:hover { background: var(--color-surface-1); }
-.service-row--open { background: var(--color-surface-1); }
-
 .service-row__main {
   display: grid;
   grid-template-columns: 48px 1fr auto;
@@ -528,12 +490,8 @@ function registerReveal(el: unknown) {
   align-items: center;
   width: 100%;
   padding: 1.1rem 0.5rem;
-  text-align: left;
   background: none;
-  border: none;
-  cursor: pointer;
   color: inherit;
-  font: inherit;
 }
 .service-row__num {
   font-family: var(--font-display);
@@ -567,72 +525,9 @@ function registerReveal(el: unknown) {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.service-row__arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  transition: all var(--duration-fast) var(--ease-out);
-}
-.service-row__arrow--open {
-  transform: rotate(180deg);
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: white;
-}
-
-.service-row__details {
-  overflow: hidden;
-}
-.service-row__details-inner {
-  padding: 0 0.5rem 1.25rem calc(48px + 1.25rem + 0.5rem);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.service-row__desc {
-  color: var(--color-text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.55;
-}
-.service-row__book {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  align-self: flex-start;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
-  color: white;
-  font-weight: 600;
-  font-size: 0.85rem;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-.service-row__book:hover { background: var(--color-accent-hover); color: white; }
-
-.expand-enter-active,
-.expand-leave-active {
-  transition: max-height 0.3s var(--ease-out), opacity 0.25s var(--ease-out);
-  overflow: hidden;
-}
-.expand-enter-from,
-.expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-.expand-enter-to,
-.expand-leave-from {
-  max-height: 300px;
-  opacity: 1;
-}
-
 @media (max-width: 700px) {
   .service-row__main { grid-template-columns: 32px 1fr; }
   .service-row__meta { grid-column: 1 / -1; padding-left: 32px; font-size: 0.85rem; }
-  .service-row__details-inner { padding-left: 32px; }
 }
 
 /* ===== BOTTOM CTA ===== */
