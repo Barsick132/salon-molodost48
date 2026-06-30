@@ -190,7 +190,7 @@ jobs:
               "$SERVER_USER@$SERVER_HOST" bash /tmp/remote-deploy.sh
           rm -f /tmp/remote-deploy.sh
 
-      - name: Smoke test
+      - name: Smoke test (via SSH to production server)
         env:
           DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
           SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
@@ -201,8 +201,10 @@ jobs:
           # Note: GitHub Actions trims trailing \n from secrets, so add it back.
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          sleep 2
+          # curl over SSH (server's localhost != runner's localhost)
           echo "=== /healthz ==="
-          curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
+              "$SERVER_USER@$SERVER_HOST" curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK
           echo "=== /readyz ==="
-          curl -fsS --max-time 5 http://127.0.0.1:3000/readyz && echo OK
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
+              "$SERVER_USER@$SERVER_HOST" curl -fsS --max-time 5 http://127.0.0.1:3000/readyz && echo OK
