@@ -23,80 +23,48 @@ jobs:
         with:
           node-version: 24
 
-      - name: Sanitize secrets (aggressive whitelist)
+      - name: Sanitize + mask secrets
         env:
-          SERVER_HOST_RAW: ${{ secrets.SERVER_HOST }}
-          SERVER_USER_RAW: ${{ secrets.SERVER_USER }}
-          DEPLOY_KEY_RAW: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
         run: |
           set -e
-          # Dump raw bytes for diagnostics (masked by GH if contains secret, but len/hex is OK)
-          echo "=== RAW hex dump (first 80 bytes) ==="
-          printf '%s' "$SERVER_HOST_RAW" | head -c 80 | xxd
-          echo "=== RAW len ==="
-          printf 'SERVER_HOST_RAW len=%d\n' "${#SERVER_HOST_RAW}"
-          printf 'SERVER_USER_RAW len=%d\n' "${#SERVER_USER_RAW}"
-          printf 'DEPLOY_KEY_RAW len=%d\n' "${#DEPLOY_KEY_RAW}"
+          # Tell GitHub to mask sanitized values in any subsequent log line.
+          echo "::add-mask::$(printf '%s' "$SERVER_HOST" | LC_ALL=C tr -cd '0-9.')"
+          echo "::add-mask::$(printf '%s' "$SERVER_USER" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')"
 
-          # Whitelist approach: IP only digits+dot; user only safe chars
-          SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | LC_ALL=C tr -cd '0-9.')
-          SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
-          # Key: auto-detect base64 (starts with LS0tLS1CRUdJTi which is base64 of '-----BEGIN')
-          # or raw openssh format (starts with -----BEGIN). Don't strip \n from raw openssh!
-          if printf '%s' "$DEPLOY_KEY_RAW" | grep -q '^LS0tLS1CRUdJTi'; then
-            # Base64: strip whitespace, then decode
-            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r\n[:space:]' | base64 -d)
-            echo "DEPLOY_KEY: detected base64, decoded ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+          # Whitelist sanitize
+          SAN_HOST=$(printf '%s' "$SERVER_HOST" | LC_ALL=C tr -cd '0-9.')
+          SAN_USER=$(printf '%s' "$SERVER_USER" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
+
+          # Key: auto-detect base64 vs raw openssh. Don't echo bytes/lengths.
+          if printf '%s' "$DEPLOY_KEY" | grep -q '^LS0tLS1CRUdJTi'; then
+            printf '%s' "$DEPLOY_KEY" | tr -d '\r\n[:space:]' | base64 -d > ~/.ssh/deploy_key
           else
-            # Raw openssh: only strip \r (Windows line endings), preserve \n
-            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r')
-            echo "DEPLOY_KEY: using raw openssh ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+            # GH trims trailing \n, restore it
+            printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           fi
+          chmod 600 ~/.ssh/deploy_key
+          # Don't print file size or fingerprint (could leak via metadata).
+          # Don't print "starts with" or other partial content.
+          # Mark deploy_key path as masked too (in case GitHub tries to log it later)
+          echo "::add-mask::$HOME/.ssh/deploy_key"
 
-          echo "=== CLEAN len ==="
-          printf 'SERVER_HOST clean len=%d\n' "${#SERVER_HOST}"
-          printf 'SERVER_USER clean len=%d\n' "${#SERVER_USER}"
-          printf 'DEPLOY_KEY clean len=%d\n' "${#DEPLOY_KEY}"
-          echo "=== CLEAN hex (first 32 bytes of HOST) ==="
-          printf '%s' "$SERVER_HOST" | head -c 32 | xxd
-          echo "=== CLEAN hex (first 32 bytes of USER) ==="
-          printf '%s' "$SERVER_USER" | head -c 32 | xxd
+          # Export sanitized host/user for downstream steps
+          echo "SAN_HOST=$SAN_HOST" >> "$GITHUB_ENV"
+          echo "SAN_USER=$SAN_USER" >> "$GITHUB_ENV"
 
-          # Export to GITHUB_ENV for downstream steps (use EOF marker to avoid shell expansion issues)
-          {
-            echo "SAN_SERVER_HOST=$SERVER_HOST"
-            echo "SAN_SERVER_USER=$SERVER_USER"
-            # Use unique heredoc-style marker
-            echo "SAN_DEPLOY_KEY<<__KEY_EOF__"
-            printf '%s' "$DEPLOY_KEY"
-            echo ""
-            echo "__KEY_EOF__"
-          } >> "$GITHUB_ENV"
-
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --config.confirmModulesPurge=false
       - run: pnpm --filter @molodost/api run db:generate
       - run: pnpm --filter @molodost/api run typecheck
 
       - name: SSH sanity test
         env:
-          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
-          SERVER_USER: ${{ env.SAN_SERVER_USER }}
-          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
+          SERVER_HOST: ${{ env.SAN_HOST }}
+          SERVER_USER: ${{ env.SAN_USER }}
         run: |
           set -e
-          echo "host=[$SERVER_HOST] user=[$SERVER_USER] len_host=${#SERVER_HOST} len_user=${#SERVER_USER}"
-          mkdir -p ~/.ssh
-          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
-          # OpenSSH requires final \n after '-----END ... KEY-----'.
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "=== deploy_key size ==="
-          ls -la ~/.ssh/deploy_key
-          echo "=== deploy_key first 16 bytes (hex) ==="
-          head -c 16 ~/.ssh/deploy_key | od -An -tx1
-          echo "=== deploy_key fingerprint ==="
-          ssh-keygen -l -f ~/.ssh/deploy_key 2>&1 || echo "ssh-keygen FAILED"
-          echo "=== ssh try ==="
           ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
               -o BatchMode=yes -o PasswordAuthentication=no \
@@ -104,16 +72,10 @@ jobs:
 
       - name: Deploy on server
         env:
-          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
-          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
-          SERVER_USER: ${{ env.SAN_SERVER_USER }}
+          SERVER_HOST: ${{ env.SAN_HOST }}
+          SERVER_USER: ${{ env.SAN_USER }}
         run: |
           set -e
-          mkdir -p ~/.ssh
-          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ls -la ~/.ssh/deploy_key
 
           cat > /tmp/remote-deploy.sh <<'REMOTE_EOF'
           #!/usr/bin/env bash
@@ -136,7 +98,6 @@ jobs:
           fi
 
           echo "STEP 2: install prod deps"
-          # Wipe node_modules to avoid pnpm interactive 'reinstall from scratch?' prompt
           sudo -u molodost -H bash -c "cd /var/www/molodost48/api && find . -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null; true"
           sudo -u molodost -H bash -c "cd /var/www/molodost48/api && pnpm install --frozen-lockfile --config.confirmModulesPurge=false"
 
@@ -192,16 +153,10 @@ jobs:
 
       - name: Smoke test (via SSH to production server)
         env:
-          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
-          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
-          SERVER_USER: ${{ env.SAN_SERVER_USER }}
+          SERVER_HOST: ${{ env.SAN_HOST }}
+          SERVER_USER: ${{ env.SAN_USER }}
         run: |
           set -e
-          mkdir -p ~/.ssh
-          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          # curl over SSH (server's localhost != runner's localhost)
           echo "=== /healthz ==="
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
               "$SERVER_USER@$SERVER_HOST" curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK

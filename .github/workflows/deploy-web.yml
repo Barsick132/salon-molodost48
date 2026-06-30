@@ -23,64 +23,51 @@ jobs:
         with:
           node-version: 24
 
-      - name: Sanitize secrets (aggressive whitelist)
+      - name: Sanitize + mask secrets
         env:
-          SERVER_HOST_RAW: ${{ secrets.SERVER_HOST }}
-          SERVER_USER_RAW: ${{ secrets.SERVER_USER }}
-          DEPLOY_KEY_RAW: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
         run: |
           set -e
-          # Whitelist approach: IP only digits+dot; user only safe chars
-          SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | LC_ALL=C tr -cd '0-9.')
-          SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
-          # Key: auto-detect base64 vs raw openssh
-          if printf '%s' "$DEPLOY_KEY_RAW" | grep -q '^LS0tLS1CRUdJTi'; then
-            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r\n[:space:]' | base64 -d)
-            echo "DEPLOY_KEY: decoded base64 ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+          echo "::add-mask::$(printf '%s' "$SERVER_HOST" | LC_ALL=C tr -cd '0-9.')"
+          echo "::add-mask::$(printf '%s' "$SERVER_USER" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')"
+
+          SAN_HOST=$(printf '%s' "$SERVER_HOST" | LC_ALL=C tr -cd '0-9.')
+          SAN_USER=$(printf '%s' "$SERVER_USER" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
+
+          if printf '%s' "$DEPLOY_KEY" | grep -q '^LS0tLS1CRUdJTi'; then
+            printf '%s' "$DEPLOY_KEY" | tr -d '\r\n[:space:]' | base64 -d > ~/.ssh/deploy_key
           else
-            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r')
-            echo "DEPLOY_KEY: raw openssh ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+            printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           fi
-          {
-            echo "SAN_SERVER_HOST=$SERVER_HOST"
-            echo "SAN_SERVER_USER=$SERVER_USER"
-            echo "SAN_DEPLOY_KEY<<__KEY_EOF__"
-            printf '%s' "$DEPLOY_KEY"
-            echo ""
-            echo "__KEY_EOF__"
-          } >> "$GITHUB_ENV"
+          chmod 600 ~/.ssh/deploy_key
+          echo "::add-mask::$HOME/.ssh/deploy_key"
+
+          echo "SAN_HOST=$SAN_HOST" >> "$GITHUB_ENV"
+          echo "SAN_USER=$SAN_USER" >> "$GITHUB_ENV"
 
       - name: Install + build
         run: |
           set -e
-          # Wipe node_modules to avoid pnpm interactive prompt
           find . -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
           pnpm install --frozen-lockfile --config.confirmModulesPurge=false
           echo "=== typecheck ==="
           pnpm --filter @molodost/web run typecheck || echo "WARN: typecheck failed but continuing"
           echo "=== build ==="
           pnpm --filter @molodost/web exec vite build
-          echo "=== dist contents ==="
-          ls -la apps/web/dist/ | head -20
+          echo "=== verify dist ==="
           test -f apps/web/dist/index.html || { echo "FAIL: dist/index.html missing"; exit 1; }
           tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
-          ls -la /tmp/molodost48-web-dist.tar.gz
           file /tmp/molodost48-web-dist.tar.gz
 
       - name: Upload + extract + reload nginx
         env:
-          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
-          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
-          SERVER_USER: ${{ env.SAN_SERVER_USER }}
+          SERVER_HOST: ${{ env.SAN_HOST }}
+          SERVER_USER: ${{ env.SAN_USER }}
         run: |
           set -e
-          mkdir -p ~/.ssh
-          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
-          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ls -la ~/.ssh/deploy_key
 
-          # Upload tarball over SSH stdin
           cat /tmp/molodost48-web-dist.tar.gz | ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new \
               -o UserKnownHostsFile=/dev/null \
