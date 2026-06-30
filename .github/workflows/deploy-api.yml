@@ -136,7 +136,9 @@ jobs:
           fi
 
           echo "STEP 2: install prod deps"
-          sudo -u molodost -H bash -c "cd /var/www/molodost48/api && pnpm install --frozen-lockfile"
+          # Wipe node_modules to avoid pnpm interactive 'reinstall from scratch?' prompt
+          sudo -u molodost -H bash -c "cd /var/www/molodost48/api && find . -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null; true"
+          sudo -u molodost -H bash -c "cd /var/www/molodost48/api && pnpm install --frozen-lockfile --config.confirmModulesPurge=false"
 
           echo "STEP 3: prisma generate"
           sudo -u molodost -H bash -c "cd /var/www/molodost48/api/apps/api && pnpm exec prisma generate"
