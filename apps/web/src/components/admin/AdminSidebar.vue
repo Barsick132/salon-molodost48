@@ -5,7 +5,6 @@ const items = [
   { to: '/admin', label: 'Дашборд', icon: '◧' },
   { to: '/admin/blocks', label: 'Блоки лендинга', icon: '◧' },
   { to: '/admin/services', label: 'Услуги и цены', icon: '◧' },
-  { to: '/admin/masters', label: 'Мастера', icon: '◧' },
   { to: '/admin/gallery', label: 'Галерея', icon: '◧' },
   { to: '/admin/promotions', label: 'Акции', icon: '◧' },
   { to: '/admin/rooms', label: 'Залы', icon: '◧' },

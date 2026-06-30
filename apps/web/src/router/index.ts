@@ -9,7 +9,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'home', component: () => import('@/pages/public/HomePage.vue') },
       { path: 'services', name: 'services', component: () => import('@/pages/public/ServicesPage.vue') },
-      { path: 'masters', name: 'masters', component: () => import('@/pages/public/MastersPage.vue') },
+      // masters route intentionally removed in v1
       { path: 'gallery', name: 'gallery', component: () => import('@/pages/public/GalleryPage.vue') },
       { path: 'promotions', name: 'promotions', component: () => import('@/pages/public/PromotionsPage.vue') },
       { path: 'reviews', name: 'reviews', component: () => import('@/pages/public/ReviewsPage.vue') },
@@ -33,7 +33,6 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'admin-dashboard', component: () => import('@/pages/admin/DashboardPage.vue') },
       { path: 'blocks', name: 'admin-blocks', component: () => import('@/pages/admin/BlocksPage.vue') },
       { path: 'services', name: 'admin-services', component: () => import('@/pages/admin/ServicesPage.vue') },
-      { path: 'masters', name: 'admin-masters', component: () => import('@/pages/admin/MastersPage.vue') },
       { path: 'gallery', name: 'admin-gallery', component: () => import('@/pages/admin/GalleryPage.vue') },
       { path: 'promotions', name: 'admin-promotions', component: () => import('@/pages/admin/PromotionsPage.vue') },
       { path: 'rooms', name: 'admin-rooms', component: () => import('@/pages/admin/RoomsPage.vue') },

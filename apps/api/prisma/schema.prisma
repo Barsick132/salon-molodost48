@@ -19,43 +19,72 @@ datasource db {
 // ============================================================
 
 model SiteSettings {
-  id                   String   @id @default("singleton")
-  brandName            String   @default("Молодость")
-  brandTagline         String   @default("Салон красоты бизнес-класса")
-  logoMediaId          String?
-  faviconMediaId       String?
+  id             String  @id @default("singleton")
+  brandName      String  @default("Молодость")
+  brandTagline   String  @default("Салон красоты бизнес-класса")
+  logoMediaId    String?
+  faviconMediaId String?
 
-  address              String   @default("г. Липецк, ул. Пушкина 4, пом. 6")
-  mapEmbedUrl          String   @default("")
-  phones               String[] @default(["8 (904) 219-19-99", "8 (474) 271-93-80"])
-  email                String   @default("support@molodost48.ru")
-  workingHours         Json     @default("[]")
-  socials              Json     @default("{}")
-  bookingUrl           String   @default("https://dikidi.ru/1475188")
+  address      String   @default("г. Липецк, ул. Пушкина 4, пом. 6")
+  mapEmbedUrl  String   @default("")
+  phones       String[] @default(["8 (904) 219-19-99", "8 (474) 271-93-80"])
+  email        String   @default("support@molodost48.ru")
+  workingHours Json     @default("[]")
+  socials      Json     @default("{}")
+  bookingUrl   String   @default("https://dikidi.ru/1475188")
 
-  seoTitle             String   @default("Молодость — салон красоты в Липецке")
-  seoDescription       String   @default("")
-  seoOgImageId         String?
-  robotsTxt            String   @default("User-agent: *\nAllow: /")
+  // ----- Map / location -----
+  // Provider: "yandex" | "google" | "osm" | "custom-iframe"
+  mapProvider        String @default("yandex")
+  // Human-readable landmark address (defaults to Lipetsk center)
+  shortAddress       String @default("г. Липецк, ул. Пушкина, 4")
+  // Optional iframe URL — overrides mapProvider marker + coord logic
+  mapIframeUrl       String @default("")
+  // Coords are used when no iframe is set or for "open in maps" deep links
+  mapMarkerLat       Float?
+  mapMarkerLng       Float?
+  mapZoom            Int    @default(15)
+  // Optional custom marker icon — link to image already uploaded to /media
+  mapCustomMarkerUrl String @default("")
+  // How-to-get modal: starting point placeholder
+  mapRouteStartHint  String @default("Ваш адрес или точка на карте")
 
-  accentColor          String   @default("#E11D48")
-  fontFamily           String   @default("Inter")
-  enableStructuredData Boolean  @default(true)
+  // ----- Page / section visibility -----
+  servicesPageEnabled        Boolean @default(true)
+  mastersPageEnabled         Boolean @default(true)
+  galleryPageEnabled         Boolean @default(true)
+  promotionsPageEnabled      Boolean @default(true)
+  reviewsPageEnabled         Boolean @default(true)
+  vacanciesPageEnabled       Boolean @default(true)
+  faqPageEnabled             Boolean @default(true)
+  contactsPageEnabled        Boolean @default(true)
+  homeServicesSectionEnabled Boolean @default(true)
+  homeMastersSectionEnabled  Boolean @default(true)
+  servicesInNavEnabled       Boolean @default(true)
 
-  updatedAt            DateTime @updatedAt
+  seoTitle       String  @default("Молодость — салон красоты в Липецке")
+  seoDescription String  @default("")
+  seoOgImageId   String?
+  robotsTxt      String  @default("User-agent: *\nAllow: /")
+
+  accentColor          String  @default("#E11D48")
+  fontFamily           String  @default("Inter")
+  enableStructuredData Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
 }
 
 model NavItem {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   label      String
   href       String
-  order      Int      @default(0)
-  isExternal Boolean  @default(false)
+  order      Int       @default(0)
+  isExternal Boolean   @default(false)
   parentId   String?
-  parent     NavItem? @relation("NavTree", fields: [parentId], references: [id])
+  parent     NavItem?  @relation("NavTree", fields: [parentId], references: [id])
   children   NavItem[] @relation("NavTree")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 // ============================================================
@@ -63,11 +92,11 @@ model NavItem {
 // ============================================================
 
 model Block {
-  id      String  @id @default(cuid())
-  type    String  // hero | about | services | masters | promotions | gallery | rooms | reviews | faq | vacancies | contacts
-  enabled Boolean @default(true)
-  order   Int     @default(0)
-  payload Json    @default("{}")
+  id        String   @id @default(cuid())
+  type      String // hero | about | services | masters | promotions | gallery | rooms | reviews | faq | vacancies | contacts
+  enabled   Boolean  @default(true)
+  order     Int      @default(0)
+  payload   Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -79,35 +108,35 @@ model Block {
 // ============================================================
 
 model ServiceCategory {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  slug        String   @unique
-  icon        String   @default("")
-  description String   @default("")
-  order       Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  slug        String    @unique
+  icon        String    @default("")
+  description String    @default("")
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   services    Service[]
 
   @@index([order])
 }
 
 model Service {
-  id               String   @id @default(cuid())
-  categoryId       String
-  category         ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  name             String
-  description      String   @default("")
-  priceFrom        Int?
-  priceTo          Int?
-  durationMinutes  Int?
-  isPopular        Boolean  @default(false)
-  isActive         Boolean  @default(true)
-  order            Int      @default(0)
-  externalId       String?  // for Yandex import de-dup
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String          @id @default(cuid())
+  categoryId      String
+  category        ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name            String
+  description     String          @default("")
+  priceFrom       Int?
+  priceTo         Int?
+  durationMinutes Int?
+  isPopular       Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  order           Int             @default(0)
+  externalId      String? // for Yandex import de-dup
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   @@unique([categoryId, externalId])
   @@index([categoryId, order])
@@ -119,18 +148,18 @@ model Service {
 // ============================================================
 
 model Master {
-  id               String   @id @default(cuid())
-  name             String
-  role             String   @default("")
-  bio              String   @default("")
-  experienceYears  Int?
-  avatarMediaId    String?
+  id                String   @id @default(cuid())
+  name              String
+  role              String   @default("")
+  bio               String   @default("")
+  experienceYears   Int?
+  avatarMediaId     String?
   portfolioMediaIds String[] @default([])
-  categoryIds      String[] @default([])
-  order            Int      @default(0)
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  categoryIds       String[] @default([])
+  order             Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([order, isActive])
 }
@@ -140,19 +169,19 @@ model Master {
 // ============================================================
 
 model Promotion {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   title           String
-  description     String   @default("")
+  description     String    @default("")
   coverMediaId    String?
-  serviceIds      String[] @default([])
+  serviceIds      String[]  @default([])
   discountPercent Int?
   discountFixed   Int?
   validFrom       DateTime?
   validUntil      DateTime?
-  isActive        Boolean  @default(true)
-  order           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean   @default(true)
+  order           Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([isActive, validUntil])
 }
@@ -162,24 +191,24 @@ model Promotion {
 // ============================================================
 
 model GalleryCategory {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   name      String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
   items     GalleryItem[]
 }
 
 model GalleryItem {
-  id          String   @id @default(cuid())
-  categoryId  String
-  category    GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  mediaId     String
-  caption     String   @default("")
-  masterId    String?
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String          @id @default(cuid())
+  categoryId String
+  category   GalleryCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mediaId    String
+  caption    String          @default("")
+  masterId   String?
+  order      Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   @@index([categoryId, order])
 }
@@ -206,16 +235,16 @@ model Room {
 // ============================================================
 
 model Review {
-  id           String   @id @default(cuid())
-  authorName   String
-  rating       Int
-  text         String
-  source       String   @default("")
+  id            String   @id @default(cuid())
+  authorName    String
+  rating        Int
+  text          String
+  source        String   @default("")
   avatarMediaId String?
-  publishedAt  DateTime @default(now())
-  isApproved   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  publishedAt   DateTime @default(now())
+  isApproved    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([isApproved, publishedAt])
 }
@@ -242,17 +271,17 @@ model Faq {
 // ============================================================
 
 model Vacancy {
-  id            String   @id @default(cuid())
-  title         String
-  description   String   @default("")
-  requirements  String   @default("")
-  salaryFrom    Int?
-  salaryTo      Int?
-  contactEmail  String?
-  contactPhone  String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  title        String
+  description  String   @default("")
+  requirements String   @default("")
+  salaryFrom   Int?
+  salaryTo     Int?
+  contactEmail String?
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([isActive, createdAt])
 }
@@ -284,7 +313,7 @@ model Media {
   width        Int?
   height       Int?
   alt          String   @default("")
-  storagePath  String   // relative to MEDIA_ROOT
+  storagePath  String // relative to MEDIA_ROOT
   createdAt    DateTime @default(now())
 
   @@index([createdAt])
@@ -295,28 +324,28 @@ model Media {
 // ============================================================
 
 model AdminUser {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  displayName  String    @default("")
-  passwordHash String
-  role         String    @default("admin")
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastLoginAt  DateTime?
-  sessions     AdminSession[]
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  displayName         String               @default("")
+  passwordHash        String
+  role                String               @default("admin")
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  lastLoginAt         DateTime?
+  sessions            AdminSession[]
   passwordResetTokens PasswordResetToken[]
-  emailChangeRequests  EmailChangeRequest[]
+  emailChangeRequests EmailChangeRequest[]
 }
 
 model AdminSession {
-  id          String   @id @default(cuid())
-  userId      String
-  user        AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id        String    @id @default(cuid())
+  userId    String
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -326,7 +355,7 @@ model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
   user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique          // sha256 hex of the random token sent by email
+  tokenHash String    @unique // sha256 hex of the random token sent by email
   expiresAt DateTime
   usedAt    DateTime?
   ipAddress String?
@@ -337,14 +366,14 @@ model PasswordResetToken {
 }
 
 model EmailChangeRequest {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
   newEmail  String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
 }
@@ -354,29 +383,29 @@ model EmailChangeRequest {
 // ============================================================
 
 model IntegrationConfig {
-  id             String   @id // e.g. "dikidi", "yandex-maps"
-  type           String   // "booking" | "maps" | "messenger" | "email"
-  enabled        Boolean  @default(false)
-  config         Json     @default("{}") // public-visible config
-  credentials    Json?    // sensitive (API tokens) — should be encrypted in prod
+  id             String    @id // e.g. "dikidi", "yandex-maps"
+  type           String // "booking" | "maps" | "messenger" | "email"
+  enabled        Boolean   @default(false)
+  config         Json      @default("{}") // public-visible config
+  credentials    Json? // sensitive (API tokens) — should be encrypted in prod
   lastSyncAt     DateTime?
-  lastSyncStatus String?  // "ok" | "error: <message>"
-  updatedAt      DateTime @updatedAt
+  lastSyncStatus String? // "ok" | "error: <message>"
+  updatedAt      DateTime  @updatedAt
   updatedBy      String?
 
   @@index([type])
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  action     String   // e.g. "service.update"
-  entity     String   // e.g. "Service"
-  entityId   String?
-  diff       Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // e.g. "service.update"
+  entity    String // e.g. "Service"
+  entityId  String?
+  diff      Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
   @@index([entity, entityId])

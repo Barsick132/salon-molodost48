@@ -6,9 +6,11 @@
  */
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
+import { useSiteStore } from '@/stores/site';
 import { api } from '@/api/client';
 
 const integrations = useIntegrationsStore();
+const site = useSiteStore();
 
 // Live services data from /api/services
 interface ServiceSummary {
@@ -207,7 +209,7 @@ const stats = [
     </section>
 
     <!-- SERVICES PREVIEW -->
-    <section class="services">
+    <section v-if="site.settings.pages.homeServicesSectionEnabled && site.settings.pages.servicesEnabled" class="services">
       <div class="container">
         <div class="section-head" :ref="registerReveal">
           <div class="section-tag">Услуги</div>

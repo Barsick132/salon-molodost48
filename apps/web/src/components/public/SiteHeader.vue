@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
+import { useSiteStore } from '@/stores/site';
 import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
 const integrations = useIntegrationsStore();
+const site = useSiteStore();
+
 onMounted(() => integrations.fetch());
 </script>
 
 <template>
   <header class="site-header">
     <div class="container">
-      <a href="/" class="logo">Молодость</a>
+      <a href="/" class="logo">{{ site.settings.brand.name }}</a>
       <nav>
-        <a href="/services">Услуги</a>
-        <a href="/masters">Мастера</a>
+        <a v-if="site.settings.pages.servicesInNavEnabled" href="/services">Услуги</a>
+        <!-- masters nav link removed in v1 -->
         <a href="/contacts">Контакты</a>
       </nav>
       <div class="cta">
-        <a href="https://dikidi.ru/#widget=212727" class="header-dikidi-btn">Записаться</a>
+        <DikidiBookingButton size="sm" />
       </div>
     </div>
   </header>
@@ -58,21 +61,6 @@ nav a {
 }
 nav a:hover { color: var(--color-accent); }
 .cta { display: flex; gap: var(--space-3); }
-.header-dikidi-btn {
-  display: inline-flex;
-  align-items: center;
-  background: var(--color-accent);
-  color: white;
-  padding: 0.5rem 1.1rem;
-  border-radius: var(--radius-full);
-  font-weight: 600;
-  font-size: var(--font-size-sm);
-  transition: all var(--duration-fast) var(--ease-out);
-}
-.header-dikidi-btn:hover {
-  background: var(--color-accent-hover);
-  color: white;
-}
 
 @media (max-width: 768px) {
   nav { display: none; }
