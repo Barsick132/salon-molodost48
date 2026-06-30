@@ -9,14 +9,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function check() {
     try {
-      user.value = await api<AdminUser>('/admin/me');
+      user.value = await api<AdminUser>('/admin/auth/me');
     } catch {
       user.value = null;
     }
   }
 
   async function login(email: string, password: string) {
-    const res = await api<{ user: AdminUser }>('/admin/login', {
+    const res = await api<{ user: AdminUser }>('/admin/auth/login', {
       method: 'POST',
       body: { email, password },
     });
@@ -25,11 +25,33 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     try {
-      await api('/admin/logout', { method: 'POST' });
+      await api('/admin/auth/logout', { method: 'POST' });
     } finally {
       user.value = null;
     }
   }
 
-  return { user, isAuthenticated, check, login, logout };
+  async function changePassword(currentPassword: string, newPassword: string) {
+    await api('/admin/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+    });
+  }
+
+  async function requestEmailChange(newEmail: string) {
+    await api('/admin/auth/request-email-change', {
+      method: 'POST',
+      body: { newEmail },
+    });
+  }
+
+  async function updateProfile(data: { displayName?: string; email?: string }) {
+    const res = await api<{ user: AdminUser }>('/admin/auth/me', {
+      method: 'PATCH',
+      body: data,
+    });
+    user.value = res.user;
+  }
+
+  return { user, isAuthenticated, check, login, logout, changePassword, requestEmailChange, updateProfile };
 });
