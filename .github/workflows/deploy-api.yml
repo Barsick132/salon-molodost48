@@ -11,19 +11,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: print branch + commit
-        run: |
-          echo "branch=${GITHUB_REF}"
-          echo "sha=${GITHUB_SHA}"
-          echo "actor=${GITHUB_ACTOR}"
-      - name: echo secrets length
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-        run: |
-          echo "host_len=${#SERVER_HOST} user_len=${#SERVER_USER} key_len=${#DEPLOY_KEY}"
-      - name: SSH test
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @molodost/api run db:generate
+      - run: pnpm --filter @molodost/api run typecheck
+
+      - name: Deploy on server
         env:
           DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -33,8 +33,92 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -vvv -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=accept-new \
-              -o UserKnownHostsFile=/dev/null \
-              -o ConnectTimeout=10 \
-              "$SERVER_USER@$SERVER_HOST" -- echo SSH_OK 2>&1 | tail -20
+
+          cat > /tmp/remote-deploy.sh <<'REMOTE_EOF'
+          #!/usr/bin/env bash
+          set -e
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo "STEP 0: bootstrap"
+          id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
+          mkdir -p /var/www/molodost48/{api,web} /var/log/molodost48 \
+                   /var/lib/molodost48/{uploads,backups} /etc/molodost48
+          chown -R molodost:molodost /var/www/molodost48 /var/log/molodost48 /var/lib/molodost48 || true
+
+          echo "STEP 1: pull source"
+          cd /var/www/molodost48
+          if [ ! -d api/.git ]; then
+            rm -rf api
+            sudo -u molodost -H bash -c "cd /var/www/molodost48 && git clone --depth 1 --branch main git@github.com:Barsick132/salon-molodost48.git api"
+          else
+            sudo -u molodost -H bash -c "cd /var/www/molodost48/api && git fetch --depth 1 origin main && git reset --hard origin/main"
+          fi
+
+          echo "STEP 2: install prod deps"
+          sudo -u molodost -H bash -c "cd /var/www/molodost48/api && pnpm install --frozen-lockfile"
+
+          echo "STEP 3: prisma generate"
+          sudo -u molodost -H bash -c "cd /var/www/molodost48/api/apps/api && pnpm exec prisma generate"
+
+          echo "STEP 4: migrate"
+          set -a; source /etc/molodost48/api.env; set +a
+          sudo -u molodost -H bash -c "cd /var/www/molodost48/api/apps/api && DATABASE_URL='$DATABASE_URL' pnpm exec prisma migrate deploy"
+
+          echo "STEP 5: ensure systemd unit"
+          if [ ! -f /etc/systemd/system/molodost48-api.service ]; then
+            cat > /etc/systemd/system/molodost48-api.service <<'UNIT_EOF'
+          [Unit]
+          Description=molodost48 API (Fastify + Prisma)
+          After=network.target postgresql.service
+          Wants=postgresql.service
+          [Service]
+          Type=simple
+          User=molodost
+          Group=molodost
+          WorkingDirectory=/var/www/molodost48/api/apps/api
+          EnvironmentFile=/etc/molodost48/api.env
+          ExecStart=/usr/local/bin/pnpm run start
+          Restart=on-failure
+          RestartSec=5
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectSystem=strict
+          ProtectHome=true
+          ReadWritePaths=/var/lib/molodost48/uploads /var/lib/molodost48/backups /var/log/molodost48
+          MemoryMax=384M
+          TasksMax=64
+          [Install]
+          WantedBy=multi-user.target
+          UNIT_EOF
+            systemctl daemon-reload
+            systemctl enable molodost48-api
+          fi
+
+          echo "STEP 6: restart"
+          systemctl restart molodost48-api
+          sleep 3
+          systemctl is-active molodost48-api
+          echo "ALL OK"
+          REMOTE_EOF
+          chmod +x /tmp/remote-deploy.sh
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
+              /tmp/remote-deploy.sh "$SERVER_USER@$SERVER_HOST:/tmp/remote-deploy.sh"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null \
+              "$SERVER_USER@$SERVER_HOST" bash /tmp/remote-deploy.sh
+          rm -f /tmp/remote-deploy.sh
+
+      - name: Smoke test
+        env:
+          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          sleep 2
+          echo "=== /healthz ==="
+          curl -fsS --max-time 5 http://127.0.0.1:3000/healthz && echo OK
+          echo "=== /readyz ==="
+          curl -fsS --max-time 5 http://127.0.0.1:3000/readyz && echo OK
