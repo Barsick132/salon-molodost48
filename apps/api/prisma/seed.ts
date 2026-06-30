@@ -6,8 +6,11 @@
  * Populates:
  *   - SiteSettings singleton (only if absent)
  *   - Default landing blocks (all disabled, except hero + contacts)
- *   - Default service categories typical for a beauty salon
  *   - Bootstrap admin user from ADMIN_BOOTSTRAP_* env vars (only if no users exist)
+ *
+ * NOTE: Service categories & services are NOT seeded here.
+ * Use `pnpm db:import-services` to populate them from data/services-from-original.json
+ * (idempotent — safe to re-run after content updates).
  *
  * Safe to run repeatedly; uses upsert/where clauses.
  */
@@ -34,15 +37,6 @@ function loadEnv() {
 }
 loadEnv();
 
-const DEFAULT_CATEGORIES = [
-  { name: 'Парикмахерский зал', slug: 'parikmakherskiy-zal', icon: '✂️', order: 0 },
-  { name: 'Ногтевой сервис', slug: 'nogtevoy-servis', icon: '💅', order: 1 },
-  { name: 'Брови и ресницы', slug: 'brovi-i-resnitsy', icon: '👁️', order: 2 },
-  { name: 'Косметология', slug: 'kosmetologiya', icon: '✨', order: 3 },
-  { name: 'Макияж', slug: 'makiyazh', icon: '💄', order: 4 },
-  { name: 'SPA и уход', slug: 'spa-i-ukhod', icon: '🌿', order: 5 },
-];
-
 async function seedSiteSettings() {
   await prisma.siteSettings.upsert({
     where: { id: 'singleton' },
@@ -61,16 +55,6 @@ async function seedSiteSettings() {
       socials: { vk: 'https://vk.com/salon_molodost48' },
     },
   });
-}
-
-async function seedServiceCategories() {
-  for (const cat of DEFAULT_CATEGORIES) {
-    await prisma.serviceCategory.upsert({
-      where: { slug: cat.slug },
-      update: { name: cat.name, icon: cat.icon, order: cat.order },
-      create: cat,
-    });
-  }
 }
 
 async function seedBlocks() {
@@ -148,14 +132,15 @@ async function main() {
   console.log('Seeding molodost48 database…');
   await seedSiteSettings();
   console.log('  ✓ SiteSettings');
-  await seedServiceCategories();
-  console.log(`  ✓ ServiceCategories (${DEFAULT_CATEGORIES.length})`);
   await seedBlocks();
   console.log('  ✓ Blocks (default set)');
   await seedIntegrations();
   console.log('  ✓ Integrations (dikidi)');
   await seedBootstrapAdmin();
   console.log('Done.');
+  console.log('');
+  console.log('Next step: run `pnpm db:import-services` to populate');
+  console.log('service categories from data/services-from-original.json');
 }
 
 main()
