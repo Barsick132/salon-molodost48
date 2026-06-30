@@ -221,15 +221,16 @@ async function geocodeYandex() {
   const addr = (contact.value.shortAddress || contact.value.fullAddress || '').trim();
   if (!addr) return;
   try {
-    // Free geocoder endpoint — no API key required for ≤25k req/day
-    const url = `https://geocode-maps.yandex.ru/1.x/?format=json&geocode=${encodeURIComponent(addr)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
-    if (typeof pos === 'string') {
-      const [lngStr, latStr] = pos.split(' ');
-      const lat = latStr ? parseFloat(latStr) : NaN;
-      const lng = lngStr ? parseFloat(lngStr) : NaN;
+    // OpenStreetMap Nominatim — free, no API key. Usage policy requires a User-Agent
+    // header, which browsers send automatically as the page URL.
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&accept-language=ru`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data: Array<{ lat: string; lon: string }> = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      const hit = data[0]!;
+      const lat = parseFloat(hit.lat);
+      const lng = parseFloat(hit.lon);
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
         map_.value.markerLat = lat;
         map_.value.markerLng = lng;
@@ -416,9 +417,9 @@ onMounted(loadAll);
 
         <div class="field" style="grid-column: 1 / -1;">
           <button type="button" class="link-btn" @click="geocodeYandex">
-            Подставить координаты по адресу (Яндекс.Геокодер)
+            Подставить координаты по адресу
           </button>
-          <span class="field__hint">Бесплатно, ключ не требуется. Адрес берётся из поля выше.</span>
+          <span class="field__hint">Через OpenStreetMap Nominatim. Бесплатно, ключ не требуется.</span>
         </div>
 
         <label class="field" style="grid-column: 1 / -1;">

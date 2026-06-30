@@ -1,24 +1,19 @@
 <script setup lang="ts">
+/**
+ * AdminSidebar — navigation links.
+ * On mobile, this is rendered inside AdminMobileMenu drawer instead of inline.
+ */
 import { RouterLink } from 'vue-router';
 
+defineProps<{
+  compact?: boolean;
+}>();
+
 const items = [
-  { to: '/admin', label: 'Дашборд', icon: '◧' },
+  { to: '/admin/services', label: 'Услуги и цены', icon: '✂' },
   { to: '/admin/blocks', label: 'Блоки лендинга', icon: '◧' },
-  { to: '/admin/services', label: 'Услуги и цены', icon: '◧' },
-  { to: '/admin/gallery', label: 'Галерея', icon: '◧' },
-  { to: '/admin/promotions', label: 'Акции', icon: '◧' },
-  { to: '/admin/rooms', label: 'Залы', icon: '◧' },
-  { to: '/admin/reviews', label: 'Отзывы', icon: '◧' },
-  { to: '/admin/faq', label: 'FAQ', icon: '◧' },
-  { to: '/admin/vacancies', label: 'Вакансии', icon: '◧' },
-  { to: '/admin/pages', label: 'Страницы', icon: '◧' },
-  { to: '/admin/navigation', label: 'Навигация', icon: '◧' },
-  { to: '/admin/media', label: 'Медиа-библиотека', icon: '◧' },
-  { to: '/admin/import', label: 'Импорт Yandex', icon: '◧' },
-  { to: '/admin/integrations', label: 'Интеграции', icon: '◧' },
-  { to: '/admin/settings', label: 'Настройки', icon: '◧' },
-  { to: '/admin/users', label: 'Пользователи', icon: '◧' },
-  { to: '/admin/audit', label: 'Audit log', icon: '◧' },
+  { to: '/admin/settings', label: 'Настройки', icon: '⚙' },
+  { to: '/admin/integrations', label: 'Интеграции', icon: '↗' },
 ];
 </script>
 
@@ -26,7 +21,10 @@ const items = [
   <aside class="admin-sidebar">
     <div class="brand">Молодость · admin</div>
     <nav>
-      <RouterLink v-for="i in items" :key="i.to" :to="i.to">{{ i.label }}</RouterLink>
+      <RouterLink v-for="i in items" :key="i.to" :to="i.to">
+        <span class="ico">{{ i.icon }}</span>
+        <span class="lbl">{{ i.label }}</span>
+      </RouterLink>
     </nav>
   </aside>
 </template>
@@ -37,6 +35,8 @@ const items = [
   border-right: 1px solid var(--color-border);
   padding: var(--space-6) var(--space-4);
   overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 .brand {
   font-size: var(--font-size-lg);
@@ -50,11 +50,15 @@ nav {
   gap: var(--space-1);
 }
 nav a {
-  padding: var(--space-3) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   transition: all var(--duration-fast) var(--ease-out);
+  text-decoration: none;
 }
 nav a:hover {
   background: var(--color-surface-2);
@@ -63,5 +67,11 @@ nav a:hover {
 nav a.router-link-active {
   background: var(--color-accent);
   color: white;
+}
+.ico {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  font-size: 1rem;
 }
 </style>
