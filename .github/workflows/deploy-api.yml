@@ -89,9 +89,9 @@ jobs:
           Type=simple
           User=molodost
           Group=molodost
-          WorkingDirectory=/var/www/molodost48/api/apps/api
+          WorkingDirectory=/var/www/molodost48/api
           EnvironmentFile=/etc/molodost48/api.env
-          ExecStart=/usr/bin/node --import tsx/esm src/index.ts
+          ExecStart=/usr/bin/pnpm --filter @molodost/api run start
           Restart=on-failure
           RestartSec=5
           StandardOutput=journal
