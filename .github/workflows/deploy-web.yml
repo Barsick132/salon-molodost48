@@ -68,8 +68,14 @@ jobs:
           SERVER_USER: ${{ env.SAN_USER }}
         run: |
           set -e
+          # Upload tarball via scp (more reliable than cat | ssh + heredoc)
+          scp -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=/dev/null \
+              /tmp/molodost48-web-dist.tar.gz \
+              "$SERVER_USER@$SERVER_HOST:/tmp/molodost48-web-dist.tar.gz"
 
-          cat /tmp/molodost48-web-dist.tar.gz | ssh -i ~/.ssh/deploy_key \
+          ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new \
               -o UserKnownHostsFile=/dev/null \
               "$SERVER_USER@$SERVER_HOST" bash -s <<'REMOTE'
@@ -82,12 +88,13 @@ jobs:
           LIVE=/var/www/molodost48/web
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
-          tar -xzf - -C "$STAGE"
+          tar -xzf /tmp/molodost48-web-dist.tar.gz -C "$STAGE"
           chown -R molodost:molodost "$STAGE"
 
           rm -rf "$LIVE"
           mv "$STAGE" "$LIVE"
           test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
+          rm -f /tmp/molodost48-web-dist.tar.gz
 
           if [ -f /etc/nginx/sites-enabled/molodost48 ]; then
             nginx -t && systemctl reload nginx
