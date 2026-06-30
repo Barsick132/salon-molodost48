@@ -20,6 +20,7 @@ import emailPlugin from './plugins/email.js';
 import publicIntegrationsRoutes from './routes/integrations.public.js';
 import publicServicesRoutes from './routes/services.public.js';
 import adminIntegrationsRoutes from './routes/integrations.admin.js';
+import adminServicesRoutes from './routes/admin.services.js';
 import adminAuthRoutes from './routes/admin.auth.js';
 import adminPasswordResetRoutes from './routes/admin.auth.password-reset.js';
 
@@ -76,6 +77,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminAuthRoutes, { prefix: '/api/admin' });
   await app.register(adminPasswordResetRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
+  await app.register(adminServicesRoutes, { prefix: '/api/admin' });
 
   // Health endpoint
   app.get('/healthz', async () => ({ status: 'ok', ts: new Date().toISOString() }));
