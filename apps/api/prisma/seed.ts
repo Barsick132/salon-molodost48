@@ -90,12 +90,8 @@ async function seedIntegrations() {
       enabled: true,
       config: {
         enabled: true,
-        publicPageUrl: 'https://dikidi.ru/1475188',
-        businessId: '1475188',
-        widgetUrl: 'https://dikidi.ru/widget/1475188',
+        widgetUrl: 'https://dikidi.ru/#widget=212727',
         buttonLabel: 'Записаться',
-        stickyMobile: true,
-        apiToken: '',
         lastSyncAt: null,
       },
       credentials: {},

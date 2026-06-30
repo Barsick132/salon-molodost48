@@ -1,112 +1,97 @@
 <script setup lang="ts">
 /**
- * DikidiBookingButton — кнопка «Записаться», открывает Dikidi widget.
+ * BookingButton — global booking CTA.
  *
- * Использует store `useIntegrationsStore` (грузит /api/integrations один раз).
- * Можно передать serviceId/masterId для deep-link.
+ * - Hides itself if `integrations.dikidi.enabled === false`
+ * - Sends a `click` event so parents can track analytics
+ * - Renders an `<a>` so Dikidi's widget script can intercept and open in-modal;
+ *   without the script it gracefully falls back to opening the URL in a new tab
  */
-
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
-import DikidiWidget from './DikidiWidget.vue';
 
 const props = withDefaults(defineProps<{
-  serviceId?: string | null;
-  masterId?: string | null;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'sticky';
+  variant?: 'primary' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   label?: string;
+  block?: boolean;
 }>(), {
-  serviceId: null,
-  masterId: null,
   variant: 'primary',
   size: 'md',
-  label: undefined,
+  block: false,
 });
 
-const integrations = useIntegrationsStore();
-const open = ref(false);
+const emit = defineEmits<{
+  (e: 'click'): void;
+}>();
 
-function click() {
-  if (!integrations.dikidi.enabled) {
-    // Fallback: открываем публичную страницу в новой вкладке
-    window.open(integrations.dikidi.publicPageUrl, '_blank', 'noopener');
-    return;
-  }
-  open.value = true;
-}
+const store = useIntegrationsStore();
 
-const labelText = props.label ?? integrations.dikidi.buttonLabel ?? 'Записаться';
+const cls = computed(() => [
+  'booking-btn',
+  `booking-btn--${props.variant}`,
+  `booking-btn--${props.size}`,
+  { 'booking-btn--block': props.block },
+]);
+
+const labelText = computed(() => {
+  if (props.label) return props.label;
+  return store.dikidi.buttonLabel || 'Записаться';
+});
+
+// Always render — if Dikidi script is loaded, it intercepts; otherwise <a target=_blank> works.
+// We render null only when globally disabled via `store.dikidi.enabled === false`.
 </script>
 
 <template>
-  <button :class="['btn', `btn-${variant}`, `btn-${size}`]" @click="click">
+  <a
+    v-if="store.dikidi.enabled"
+    :href="store.dikidi.widgetUrl"
+    target="_blank"
+    rel="noopener"
+    :class="cls"
+    @click="emit('click')"
+  >
     {{ labelText }}
-  </button>
-  <DikidiWidget
-    v-if="integrations.dikidi.enabled"
-    v-model:open="open"
-    :widget-url="integrations.dikidi.widgetUrl"
-    :service-id="serviceId"
-    :master-id="masterId"
-  />
+  </a>
 </template>
 
 <style scoped>
-.btn {
+.booking-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  border-radius: var(--radius-md);
+  gap: 0.5rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
   white-space: nowrap;
+  font-family: inherit;
 }
-.btn-sm { padding: var(--space-2) var(--space-4); font-size: var(--font-size-sm); }
-.btn-md { padding: var(--space-3) var(--space-6); font-size: var(--font-size-base); }
-.btn-lg { padding: var(--space-4) var(--space-8); font-size: var(--font-size-lg); }
+.booking-btn:active { transform: translateY(1px); }
 
-.btn-primary {
+.booking-btn--sm { padding: 0.4rem 0.9rem; font-size: 0.825rem; }
+.booking-btn--md { padding: 0.65rem 1.25rem; font-size: 0.95rem; }
+.booking-btn--lg { padding: 0.85rem 1.75rem; font-size: 1.05rem; }
+.booking-btn--block { width: 100%; }
+
+.booking-btn--primary {
   background: var(--color-accent);
   color: white;
-  box-shadow: 0 4px 14px var(--color-accent-glow);
+  border-color: var(--color-accent);
 }
-.btn-primary:hover {
-  background: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--color-accent-glow);
-}
+.booking-btn--primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
 
-.btn-secondary {
-  background: var(--color-surface-2);
+.booking-btn--ghost {
+  background: transparent;
   color: var(--color-text-primary);
   border-color: var(--color-border);
 }
-.btn-secondary:hover {
-  background: var(--color-surface-3);
+.booking-btn--ghost:hover {
   border-color: var(--color-accent);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-.btn-ghost:hover { color: var(--color-accent); }
-
-.btn-sticky {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-4);
-  transform: translateX(-50%);
-  z-index: 50;
-  background: var(--color-accent);
-  color: white;
-  box-shadow: var(--shadow-lg), 0 0 24px var(--color-accent-glow);
-  padding: var(--space-4) var(--space-8);
-  font-size: var(--font-size-base);
-  border-radius: var(--radius-full);
+  color: var(--color-accent);
 }
 </style>

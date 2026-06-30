@@ -2,38 +2,30 @@ import { z } from 'zod';
 
 /**
  * Integrations — third-party services we connect to.
- * One row per integration id (e.g. "dikidi", "yandex-maps"), generic shape.
+ * One row per integration id (e.g. "dikidi"), generic shape.
  */
 
 /**
  * Dikidi booking integration.
  *
- * Two modes:
- *  - **Widget only** (no API token): we render Dikidi's booking widget
- *    (iframe or JS modal) so visitors stay on our site.
- *  - **Full API** (with business API token): we sync services/masters
- *    from Dikidi into our DB and can fetch free slots.
+ * Single source of truth is `widgetUrl` — typically a hash URL like
+ * `https://dikidi.ru/#widget=212727` that opens Dikidi's inline booking modal.
+ * If `enabled` is false, no booking buttons are rendered anywhere.
  */
 export const DikidiConfig = z.object({
+  /** Global kill-switch for every booking button across the site. */
   enabled: z.boolean().default(true),
-  /** Public page URL on dikidi.ru. */
-  publicPageUrl: z.string().url().default('https://dikidi.ru/1475188'),
-  /** Business ID, used for widget iframe. */
-  businessId: z.string().default('1475188'),
-  /** Widget embed URL (defaults to dikidi standard widget). */
+  /**
+   * Single URL Dikidi is opened with. Usually:
+   *  - `https://dikidi.ru/#widget=212727`   — modal widget
+   *  - `https://dikidi.ru/1475188`          — public company page
+   */
   widgetUrl: z
     .string()
     .url()
-    .default('https://dikidi.ru/widget/1475188'),
-  /** Booking button label. */
+    .default('https://dikidi.ru/#widget=212727'),
+  /** Booking button text. */
   buttonLabel: z.string().max(40).default('Записаться'),
-  /** Show button as sticky CTA on mobile bottom. */
-  stickyMobile: z.boolean().default(true),
-
-  /** Optional API integration (sync catalog / slots). */
-  apiToken: z.string().max(500).optional().default(''),
-  /** Last successful sync timestamp. */
-  lastSyncAt: z.string().nullable().default(null),
 });
 
 export type DikidiConfig = z.infer<typeof DikidiConfig>;
@@ -43,10 +35,8 @@ export type DikidiConfig = z.infer<typeof DikidiConfig>;
  */
 export const DikidiPublicConfig = z.object({
   enabled: z.boolean(),
-  publicPageUrl: z.string(),
   widgetUrl: z.string(),
   buttonLabel: z.string(),
-  stickyMobile: z.boolean(),
 });
 
 export type DikidiPublicConfig = z.infer<typeof DikidiPublicConfig>;

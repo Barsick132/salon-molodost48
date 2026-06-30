@@ -1,48 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue';
-import { api } from '@/api/client';
-import type { DikidiConfig } from '@molodost/shared';
+/**
+ * Integrations admin page — Dikidi configuration.
+ *
+ * We intentionally keep the surface area tiny: a single widget URL plus a
+ * global on/off toggle. Field-truth source: packages/shared/src/integrations.ts.
+ */
+import { ref, onMounted } from 'vue';
+import { api, ApiError } from '@/api/client';
+
+interface Dikidi {
+  enabled: boolean;
+  widgetUrl: string;
+  buttonLabel: string;
+}
+
+const dikidi = ref<Dikidi>({
+  enabled: true,
+  widgetUrl: 'https://dikidi.ru/#widget=212727',
+  buttonLabel: 'Записаться',
+});
 
 const loading = ref(true);
 const saving = ref(false);
-const syncing = ref(false);
-const error = ref('');
-const success = ref('');
-
-const form = reactive<{
-  enabled: boolean;
-  publicPageUrl: string;
-  businessId: string;
-  widgetUrl: string;
-  buttonLabel: string;
-  stickyMobile: boolean;
-  apiToken: string;
-  lastSyncAt: string | null;
-  lastSyncStatus: string | null;
-}>({
-  enabled: true,
-  publicPageUrl: 'https://dikidi.ru/1475188',
-  businessId: '1475188',
-  widgetUrl: 'https://dikidi.ru/widget/1475188',
-  buttonLabel: 'Записаться',
-  stickyMobile: true,
-  apiToken: '',
-  lastSyncAt: null,
-  lastSyncStatus: null,
-});
+const message = ref<{ type: 'ok' | 'error'; text: string } | null>(null);
 
 async function load() {
   loading.value = true;
-  error.value = '';
   try {
-    const data = await api<DikidiConfig & { lastSyncAt: string | null; lastSyncStatus: string | null }>(
-      '/admin/integrations/dikidi',
-    );
-    if (data) {
-      Object.assign(form, data);
-    }
+    const data = await api<Dikidi>('/admin/integrations/dikidi');
+    dikidi.value = data;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось загрузить настройки';
+    message.value = { type: 'error', text: e instanceof ApiError ? e.message : 'Ошибка загрузки' };
   } finally {
     loading.value = false;
   }
@@ -50,31 +38,14 @@ async function load() {
 
 async function save() {
   saving.value = true;
-  error.value = '';
-  success.value = '';
+  message.value = null;
   try {
-    await api('/admin/integrations/dikidi', { method: 'PUT', body: form });
-    success.value = 'Сохранено';
-    setTimeout(() => (success.value = ''), 2500);
+    await api('/admin/integrations/dikidi', { method: 'PUT', body: dikidi.value });
+    message.value = { type: 'ok', text: 'Сохранено. Изменения вступят в силу сразу.' };
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось сохранить';
+    message.value = { type: 'error', text: e instanceof ApiError ? e.message : 'Не удалось сохранить' };
   } finally {
     saving.value = false;
-  }
-}
-
-async function sync() {
-  syncing.value = true;
-  error.value = '';
-  success.value = '';
-  try {
-    const res = await api<{ ok: boolean; message?: string }>('/admin/integrations/dikidi/sync', { method: 'POST' });
-    success.value = res.message ?? 'Синхронизация поставлена в очередь';
-    await load();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Не удалось синхронизировать';
-  } finally {
-    syncing.value = false;
   }
 }
 
@@ -82,200 +53,257 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="page">
-    <header>
+  <div class="admin-integrations">
+    <header class="page-head">
       <h1>Интеграции</h1>
-      <p class="muted">Подключённые внешние сервисы</p>
+      <p class="page-sub">Сторонние сервисы, к которым подключён сайт</p>
     </header>
 
-    <section v-if="loading" class="loading">Загрузка…</section>
-
-    <section v-else class="card">
-      <div class="card-header">
-        <div>
-          <h2>Dikidi — онлайн-запись</h2>
-          <p class="muted">
-            Виджет бронирования на нашем сайте + синхронизация каталога через Dikidi Business API.
-            <a href="https://dikidi.ru" target="_blank" rel="noopener">dikidi.ru ↗</a>
-          </p>
+    <article v-if="!loading" class="int-card">
+      <header class="int-card__head">
+        <div class="int-card__title">
+          <h2>DiKiDi</h2>
+          <span class="int-card__sub">Онлайн-запись на услуги салона</span>
         </div>
-        <label class="switch">
-          <input v-model="form.enabled" type="checkbox" />
-          <span>Включено</span>
+        <label class="switch" :title="dikidi.enabled ? 'Кнопка записи показывается везде' : 'Кнопка записи скрыта'">
+          <input
+            type="checkbox"
+            v-model="dikidi.enabled"
+            :disabled="saving"
+          />
+          <span class="switch__track"><span class="switch__thumb" /></span>
+          <span class="switch__label">{{ dikidi.enabled ? 'Включено' : 'Выключено' }}</span>
         </label>
-      </div>
+      </header>
 
-      <form @submit.prevent="save">
-        <div class="grid">
-          <label>
-            <span>Публичная страница (URL)</span>
-            <input v-model="form.publicPageUrl" type="url" required />
-          </label>
-          <label>
-            <span>Business ID</span>
-            <input v-model="form.businessId" type="text" required />
-          </label>
-          <label class="full">
-            <span>Widget URL (для iframe)</span>
-            <input v-model="form.widgetUrl" type="url" required />
-          </label>
-          <label>
-            <span>Текст кнопки</span>
-            <input v-model="form.buttonLabel" type="text" maxlength="40" />
-          </label>
-          <label class="switch-label">
-            <input v-model="form.stickyMobile" type="checkbox" />
-            <span>Sticky-кнопка на мобильных</span>
-          </label>
-          <label class="full">
-            <span>Dikidi Business API token <em>(опционально, для синхронизации каталога)</em></span>
-            <input v-model="form.apiToken" type="password" placeholder="оставьте пустым, если не используете API" />
-          </label>
+      <div class="int-card__body">
+        <div v-if="message" :class="['int-message', `int-message--${message.type}`]">{{ message.text }}</div>
+
+        <label class="field">
+          <span class="field__label">Ссылка виджета</span>
+          <input
+            v-model="dikidi.widgetUrl"
+            type="url"
+            class="field__input"
+            placeholder="https://dikidi.ru/#widget=212727"
+            :disabled="saving"
+          />
+          <span class="field__hint">
+            Один URL — для модального виджета используйте формат
+            <code>https://dikidi.ru/#widget=212727</code>,
+            для публичной страницы салона — <code>https://dikidi.ru/1475188</code>.
+            Скрипт Dikidi сам обработает клик и откроет запись в модальном окне;
+            без скрипта ссылка откроется в новой вкладке.
+          </span>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Текст кнопки по умолчанию</span>
+          <input
+            v-model="dikidi.buttonLabel"
+            type="text"
+            maxlength="40"
+            class="field__input"
+            :disabled="saving"
+          />
+        </label>
+
+        <div class="preview">
+          <p class="preview__caption">Предпросмотр</p>
+          <a
+            v-if="dikidi.enabled"
+            :href="dikidi.widgetUrl"
+            target="_blank"
+            rel="noopener"
+            :class="['booking-preview-btn', `booking-preview-btn--${dikidi.enabled ? 'primary' : ''}`]"
+          >
+            {{ dikidi.buttonLabel || 'Записаться' }}
+          </a>
+          <span v-else class="preview__hidden">Кнопка скрыта по всему сайту.</span>
         </div>
 
-        <div v-if="form.lastSyncAt" class="sync-info">
-          <p><strong>Последняя синхронизация:</strong> {{ new Date(form.lastSyncAt).toLocaleString('ru-RU') }}</p>
-          <p v-if="form.lastSyncStatus" :class="form.lastSyncStatus.startsWith('ok') ? 'ok' : 'pending'">
-            {{ form.lastSyncStatus }}
-          </p>
-        </div>
-
-        <div class="actions">
-          <button type="submit" class="btn-primary" :disabled="saving">
+        <footer class="int-card__foot">
+          <button type="button" class="btn btn--primary" :disabled="saving" @click="save">
             {{ saving ? 'Сохраняем…' : 'Сохранить' }}
           </button>
-          <button
-            type="button"
-            class="btn-secondary"
-            :disabled="syncing || !form.apiToken"
-            :title="!form.apiToken ? 'Сначала добавьте API token' : ''"
-            @click="sync"
-          >
-            {{ syncing ? 'Синхронизируем…' : 'Синхронизировать каталог' }}
-          </button>
-          <p v-if="success" class="ok">{{ success }}</p>
-          <p v-if="error" class="err">{{ error }}</p>
-        </div>
-      </form>
-    </section>
+        </footer>
+      </div>
+    </article>
 
-    <section class="card info">
-      <h3>Как получить Dikidi Business API token</h3>
-      <ol>
-        <li>Зайдите в <a href="https://business.dikidi.ru" target="_blank" rel="noopener">business.dikidi.ru</a> как владелец салона.</li>
-        <li>Раздел «Настройки» → «Интеграции» → «API».</li>
-        <li>Создайте новый API-ключ с правами на чтение каталога и расписания.</li>
-        <li>Скопируйте токен и вставьте в поле выше.</li>
-      </ol>
-      <p class="muted">
-        Когда токен добавлен, кнопка «Синхронизировать каталог» подтянет актуальные услуги и мастеров из Dikidi.
-        Сейчас синхронизация — заглушка; полная реализация появится, как только у нас будет реальный токен.
-      </p>
-    </section>
+    <p v-if="loading" class="loading">Загружаем…</p>
   </div>
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: var(--space-8); }
-header h1 { font-size: var(--font-size-2xl); margin-bottom: var(--space-1); }
-.muted { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.admin-integrations { max-width: 720px; }
 
-.card {
+.page-head { margin-bottom: 1.5rem; }
+.page-head h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+}
+.page-sub { color: var(--color-text-muted); font-size: 0.875rem; }
+
+.int-card {
   background: var(--color-surface-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  overflow: hidden;
 }
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-6);
-}
-.card-header h2 { font-size: var(--font-size-xl); margin-bottom: var(--space-2); }
-
-.switch {
+.int-card__head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  gap: 1rem;
 }
-.switch input { width: 40px; height: 22px; accent-color: var(--color-accent); }
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
+.int-card__title h2 { font-size: 1.125rem; font-weight: 600; }
+.int-card__sub {
+  font-size: 0.825rem;
+  color: var(--color-text-muted);
+  display: block;
+  margin-top: 0.15rem;
 }
-.grid .full { grid-column: 1 / -1; }
-label {
+.int-card__body {
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 1.25rem;
 }
-label > span {
-  font-size: var(--font-size-sm);
+.int-card__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch__track {
+  width: 38px;
+  height: 22px;
+  background: var(--color-surface-3);
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.2s ease;
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 18px; height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.switch input:checked + .switch__track { background: var(--color-accent); }
+.switch input:checked + .switch__track .switch__thumb { transform: translateX(16px); }
+.switch__label { font-size: 0.85rem; color: var(--color-text-secondary); }
+.switch input:disabled + .switch__track { opacity: 0.5; }
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field__label {
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--color-text-secondary);
 }
-label > span em { color: var(--color-text-muted); font-style: normal; }
-input[type=text], input[type=url], input[type=password] {
+.field__input {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
+  padding: 0.6rem 0.85rem;
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
   font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease;
 }
-input:focus { outline: none; border-color: var(--color-accent); }
+.field__input:focus { outline: none; border-color: var(--color-accent); }
+.field__input:disabled { opacity: 0.6; }
+.field__hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+.field__hint code {
+  background: var(--color-surface-3);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: ui-monospace, monospace;
+}
 
-.switch-label { flex-direction: row; align-items: center; gap: var(--space-2); }
-
-.sync-info {
-  margin-top: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface-2);
+.preview {
+  border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-}
-.sync-info .ok { color: var(--color-success); }
-.sync-info .pending { color: var(--color-warning); }
-
-.actions {
+  padding: 1.25rem;
+  background: var(--color-surface-2);
   display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  margin-top: var(--space-6);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
 }
-.btn-primary, .btn-secondary {
-  padding: var(--space-3) var(--space-6);
+.preview__caption {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  margin: 0;
+  font-weight: 600;
+}
+.preview__hidden {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.booking-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.25rem;
+  background: var(--color-accent);
+  color: white;
   border-radius: var(--radius-md);
   font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
+  text-decoration: none;
+  font-size: 0.95rem;
 }
-.btn-primary { background: var(--color-accent); color: white; }
-.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: var(--color-surface-2); color: var(--color-text-primary); border-color: var(--color-border); }
-.btn-secondary:hover:not(:disabled) { border-color: var(--color-accent); }
-.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-.ok { color: var(--color-success); }
-.err { color: var(--color-danger); }
+.booking-preview-btn:hover { background: var(--color-accent-hover); }
 
-.info h3 { margin-bottom: var(--space-3); font-size: var(--font-size-base); }
-.info ol { padding-left: var(--space-6); margin-bottom: var(--space-3); }
-.info li { margin-bottom: var(--space-2); }
-
-a { color: var(--color-accent); }
-a:hover { color: var(--color-accent-hover); }
-
-@media (max-width: 768px) {
-  .grid { grid-template-columns: 1fr; }
-  .card-header { flex-direction: column; }
+.btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
 }
+.btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+.btn--primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.int-message {
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+.int-message--ok { background: rgba(34, 197, 94, 0.12); color: var(--color-success); border: 1px solid rgba(34, 197, 94, 0.3); }
+.int-message--error { background: rgba(239, 68, 68, 0.12); color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+.loading { padding: 2rem; text-align: center; color: var(--color-text-muted); }
 </style>

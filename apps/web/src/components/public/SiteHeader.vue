@@ -4,7 +4,7 @@ import { useIntegrationsStore } from '@/stores/integrations';
 import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
 const integrations = useIntegrationsStore();
-onMounted(() => integrations.load());
+onMounted(() => integrations.fetch());
 </script>
 
 <template>

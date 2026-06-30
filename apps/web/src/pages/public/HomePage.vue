@@ -53,7 +53,7 @@ const reveals = ref<HTMLElement[]>([]);
 let observer: IntersectionObserver | null = null;
 
 onMounted(async () => {
-  await integrations.load();
+  await integrations.fetch();
   try {
     const res = await api<{ categories: ServiceCategorySummary[] }>('/services');
     servicesLive.value = res.categories;

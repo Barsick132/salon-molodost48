@@ -1,44 +1,59 @@
 /**
  * Admin integrations routes — manage integration configs.
  * All routes require admin auth.
+ *
+ * Dikidi is a single-URL affair: enabled flag + widgetUrl + buttonLabel.
+ * We intentionally don't store/display a business API token — widget mode only.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { DikidiConfig } from '@molodost/shared';
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
-const UpdateDikidiSchema = DikidiConfig.partial();
+const UpdateDikidi = z.object({
+  enabled: z.boolean().optional(),
+  widgetUrl: z.string().url().optional(),
+  buttonLabel: z.string().max(40).optional(),
+});
+
+function js(s: z.ZodType): unknown {
+  return zodToJsonSchema(s, { target: 'jsonSchema7' });
+}
 
 const plugin: FastifyPluginAsync = async (app) => {
   // All routes require admin
-  app.addHook('onRequest', app.auth.requireAdmin);
+  app.addHook('preHandler', app.auth.requireAdmin);
 
-  // GET /api/admin/integrations/dikidi — full config (incl. apiToken)
+  // GET /api/admin/integrations/dikidi
   app.get('/integrations/dikidi', async () => {
-    const row = await app.prisma.integrationConfig.findUnique({ where: { id: 'dikidi' } });
-    if (!row) return null;
+    const cfg = await app.integrations.getDikidi();
     return {
-      ...(row.config as object),
-      enabled: row.enabled,
-      lastSyncAt: row.lastSyncAt?.toISOString() ?? null,
-      lastSyncStatus: row.lastSyncStatus,
+      enabled: cfg.enabled,
+      widgetUrl: cfg.widgetUrl,
+      buttonLabel: cfg.buttonLabel,
     };
   });
 
   // PUT /api/admin/integrations/dikidi — update config
-  app.put('/integrations/dikidi', async (req, reply) => {
-    const parsed = UpdateDikidiSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: { code: 'invalid', message: 'Invalid config', details: parsed.error.flatten() } });
-    }
+  app.put('/integrations/dikidi', {
+    schema: { body: js(UpdateDikidi) },
+  }, async (req) => {
+    const data = req.body as z.infer<typeof UpdateDikidi>;
     const current = await app.prisma.integrationConfig.findUnique({ where: { id: 'dikidi' } });
+    const currentConfig = (current?.config as Record<string, unknown>) ?? {};
+    const mergedConfig = {
+      widgetUrl: data.widgetUrl ?? currentConfig.widgetUrl ?? 'https://dikidi.ru/#widget=212727',
+      buttonLabel: data.buttonLabel ?? currentConfig.buttonLabel ?? 'Записаться',
+    };
+    const enabled = data.enabled ?? current?.enabled ?? true;
+
     if (!current) {
       await app.prisma.integrationConfig.create({
         data: {
           id: 'dikidi',
           type: 'booking',
-          enabled: parsed.data.enabled ?? true,
-          config: parsed.data as object,
+          enabled,
+          config: mergedConfig,
           updatedBy: req.adminUser!.id,
         },
       });
@@ -46,51 +61,25 @@ const plugin: FastifyPluginAsync = async (app) => {
       await app.prisma.integrationConfig.update({
         where: { id: 'dikidi' },
         data: {
-          enabled: parsed.data.enabled ?? current.enabled,
-          config: { ...(current.config as object), ...parsed.data } as object,
+          enabled,
+          config: mergedConfig,
           updatedBy: req.adminUser!.id,
         },
       });
     }
+
     await app.prisma.auditLog.create({
       data: {
         userId: req.adminUser!.id,
         action: 'integration.update',
         entity: 'IntegrationConfig',
         entityId: 'dikidi',
-        diff: parsed.data as object,
+        diff: data as object,
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] ?? '',
       },
     });
     return { ok: true };
-  });
-
-  // POST /api/admin/integrations/dikidi/sync — sync catalog from Dikidi API
-  // Stub for now; needs real Dikidi Business API integration.
-  app.post('/integrations/dikidi/sync', async (req, reply) => {
-    const cfg = await app.integrations.getDikidi();
-    if (!cfg.apiToken) {
-      return reply.code(400).send({
-        error: {
-          code: 'no_token',
-          message: 'Dikidi API token is not configured. Add it in Settings → Integrations.',
-        },
-      });
-    }
-    // TODO: real sync via Dikidi Business API.
-    // For now we mark as ok with a placeholder.
-    await app.prisma.integrationConfig.update({
-      where: { id: 'dikidi' },
-      data: {
-        lastSyncAt: new Date(),
-        lastSyncStatus: 'pending — Dikidi Business API integration coming in next phase',
-      },
-    });
-    return {
-      ok: true,
-      message: 'Sync queued. Full Dikidi Business API sync will be implemented when you provide API credentials.',
-    };
   });
 };
 

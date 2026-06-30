@@ -1,31 +1,39 @@
+/**
+ * Integrations store — public-side mirror of /api/integrations.
+ * When `dikidi.enabled === false`, all booking buttons hide globally.
+ */
+
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
-import type { DikidiPublicConfig } from '@molodost/shared';
 
-const DEFAULT_DIKIDI: DikidiPublicConfig = {
-  enabled: true,
-  publicPageUrl: 'https://dikidi.ru/1475188',
-  widgetUrl: 'https://dikidi.ru/widget/1475188',
-  buttonLabel: 'Записаться',
-  stickyMobile: true,
-};
+export interface PublicDikidiConfig {
+  enabled: boolean;
+  widgetUrl: string;
+  buttonLabel: string;
+}
 
 export const useIntegrationsStore = defineStore('integrations', () => {
-  const dikidi = ref<DikidiPublicConfig>(DEFAULT_DIKIDI);
-  const loaded = ref(false);
+  const dikidi = ref<PublicDikidiConfig>({
+    enabled: false,
+    widgetUrl: 'https://dikidi.ru/#widget=212727',
+    buttonLabel: 'Записаться',
+  });
 
-  async function load() {
-    if (loaded.value) return;
+  async function fetch() {
     try {
-      const data = await api<{ dikidi: DikidiPublicConfig }>('/integrations');
-      dikidi.value = data.dikidi;
+      const res = await api<{ dikidi: PublicDikidiConfig }>('/integrations');
+      if (res?.dikidi) dikidi.value = res.dikidi;
     } catch {
-      // keep defaults
-    } finally {
-      loaded.value = true;
+      // Network problem → keep defaults. Booking buttons will still show
+      // (assume enabled=true) so visitors can still book during outages.
+      dikidi.value = {
+        enabled: true,
+        widgetUrl: 'https://dikidi.ru/#widget=212727',
+        buttonLabel: 'Записаться',
+      };
     }
   }
 
-  return { dikidi, loaded, load };
+  return { dikidi, fetch };
 });

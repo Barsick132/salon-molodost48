@@ -22,22 +22,19 @@ const plugin: FastifyPluginAsync = async (app) => {
         where: { id: 'dikidi' },
       });
       if (!row) {
-        // Return safe defaults if not seeded
+        // Safe defaults when nothing is configured yet
         return {
           enabled: false,
-          publicPageUrl: 'https://dikidi.ru/1475188',
-          businessId: '1475188',
-          widgetUrl: 'https://dikidi.ru/widget/1475188',
+          widgetUrl: 'https://dikidi.ru/#widget=212727',
           buttonLabel: 'Записаться',
-          stickyMobile: true,
-          apiToken: '',
-          lastSyncAt: null,
         };
       }
+      const cfg = (row.config as Partial<DikidiConfig>) ?? {};
       return {
-        ...(row.config as object),
-        enabled: row.enabled && (row.config as { enabled?: boolean })?.enabled !== false,
-      } as DikidiConfig;
+        enabled: row.enabled,
+        widgetUrl: cfg.widgetUrl ?? 'https://dikidi.ru/#widget=212727',
+        buttonLabel: cfg.buttonLabel ?? 'Записаться',
+      };
     },
   });
 };
