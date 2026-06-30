@@ -90,15 +90,15 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           echo "=== deploy_key size ==="
           ls -la ~/.ssh/deploy_key
-          echo "=== deploy_key first 100 bytes (od -c) ==="
-          head -c 100 ~/.ssh/deploy_key | od -c | head -8
+          echo "=== deploy_key first 16 bytes (hex) ==="
+          head -c 16 ~/.ssh/deploy_key | od -An -tx1
           echo "=== deploy_key fingerprint ==="
           ssh-keygen -l -f ~/.ssh/deploy_key 2>&1 || echo "ssh-keygen FAILED"
           echo "=== ssh try ==="
-          ssh -v -i ~/.ssh/deploy_key \
+          ssh -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
               -o BatchMode=yes -o PasswordAuthentication=no \
-              "$SERVER_USER@$SERVER_HOST" echo SSH_OK 2>&1 | tail -30 || echo "SSH FAILED"
+              "$SERVER_USER@$SERVER_HOST" echo SSH_OK
 
       - name: Deploy on server
         env:
