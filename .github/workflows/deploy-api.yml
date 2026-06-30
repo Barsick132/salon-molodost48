@@ -86,7 +86,9 @@ jobs:
           set -e
           echo "host=[$SERVER_HOST] user=[$SERVER_USER] len_host=${#SERVER_HOST} len_user=${#SERVER_USER}"
           mkdir -p ~/.ssh
-          printf '%s' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
+          # OpenSSH requires final \n after '-----END ... KEY-----'.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "=== deploy_key size ==="
           ls -la ~/.ssh/deploy_key
@@ -108,7 +110,8 @@ jobs:
         run: |
           set -e
           mkdir -p ~/.ssh
-          printf '%s' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ls -la ~/.ssh/deploy_key
 
@@ -193,7 +196,8 @@ jobs:
         run: |
           set -e
           mkdir -p ~/.ssh
-          printf '%s' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           sleep 2
           echo "=== /healthz ==="
