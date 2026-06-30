@@ -30,41 +30,45 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @molodost/web run typecheck
       - run: pnpm --filter @molodost/web run build
-
-      - name: Build tarball
-        run: |
-          cd apps/web
-          tar -czf /tmp/molodost48-web-dist.tar.gz dist
-          ls -lh /tmp/molodost48-web-dist.tar.gz
+      - run: tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
 
       - name: Upload + extract + reload nginx
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          command_timeout: 5m
-          script: |
-            set -e
-            id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
-            mkdir -p /var/www/molodost48/web
-            chown -R molodost:molodost /var/www/molodost48/web
+        env:
+          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
 
-            STAGE=/var/www/molodost48/web.staging
-            LIVE=/var/www/molodost48/web
-            rm -rf "$STAGE"
-            mkdir -p "$STAGE"
-            tar -xzf /tmp/molodost48-web-dist.tar.gz -C "$STAGE"
-            chown -R molodost:molodost "$STAGE"
+          # Upload tarball over SSH stdin
+          cat /tmp/molodost48-web-dist.tar.gz | ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile=/dev/null \
+              "$SERVER_USER@$SERVER_HOST" bash -s <<'REMOTE'
+          set -e
+          id molodost 2>/dev/null || useradd -m -s /bin/bash -d /home/molodost molodost
+          mkdir -p /var/www/molodost48/web
+          chown -R molodost:molodost /var/www/molodost48/web
 
-            # Atomic swap
-            rm -rf "$LIVE"
-            mv "$STAGE" "$LIVE"
-            test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
+          STAGE=/var/www/molodost48/web.staging
+          LIVE=/var/www/molodost48/web
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          tar -xzf - -C "$STAGE"
+          chown -R molodost:molodost "$STAGE"
 
-            # Nginx site (idempotent)
-            if [ ! -f /etc/nginx/sites-enabled/molodost48 ]; then
-              echo "nginx site not yet configured — skipping reload"
-            else
-              nginx -t && systemctl reload nginx
-            fi
+          rm -rf "$LIVE"
+          mv "$STAGE" "$LIVE"
+          test -f "$LIVE/index.html" && echo "web deployed: $(du -sh $LIVE | cut -f1)"
+
+          if [ -f /etc/nginx/sites-enabled/molodost48 ]; then
+            nginx -t && systemctl reload nginx
+          else
+            echo "nginx site not configured yet — skipping reload"
+          fi
+          REMOTE
+
+          rm -f /tmp/molodost48-web-dist.tar.gz
