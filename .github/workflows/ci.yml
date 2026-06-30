@@ -10,12 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
-        with: { version: 9.15.9 }
+        with:
+          version: 9.15.9
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Debug info
+        run: |
+          echo "node: $(node --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo "lockfile:"
+          ls -la pnpm-lock.yaml
+          head -3 pnpm-lock.yaml
+          echo "packageManager field:"
+          grep packageManager package.json || echo "(none)"
+
       - run: pnpm install --frozen-lockfile
-      - run: pnpm -r run typecheck
       - run: pnpm --filter @molodost/shared run typecheck
+      - run: pnpm --filter @molodost/api run typecheck
+      - run: pnpm --filter @molodost/web run typecheck
