@@ -4,10 +4,49 @@
  * Renders the salon's value prop, advantages, services preview, and booking CTA.
  * Animations use IntersectionObserver for fade-up reveal on scroll.
  */
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
+import { api } from '@/api/client';
 
 const integrations = useIntegrationsStore();
+
+// Live services data from /api/services
+interface ServiceSummary {
+  id: string;
+  name: string;
+  priceFrom: number | null;
+  priceTo: number | null;
+  durationMinutes: number | null;
+  isPopular: boolean;
+}
+interface ServiceCategorySummary {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  services: ServiceSummary[];
+}
+const servicesLive = ref<ServiceCategorySummary[]>([]);
+const servicesLoading = ref(true);
+
+onMounted(async () => {
+  // ... existing observer init ...
+});
+
+const categoryPreviews = computed(() =>
+  servicesLive.value.map((cat) => {
+    const items = cat.services
+      .filter((s) => s.priceFrom != null)
+      .map((s) => s.priceFrom as number);
+    const minPrice = items.length ? Math.min(...items) : 0;
+    return {
+      name: cat.name,
+      icon: cat.icon,
+      count: `${cat.services.length} ${cat.services.length === 1 ? 'услуга' : cat.services.length < 5 ? 'услуги' : 'услуг'}`,
+      from: minPrice ? `от ${minPrice.toLocaleString('ru-RU')} ₽` : '—',
+    };
+  }),
+);
 
 // Reveal-on-scroll
 const reveals = ref<HTMLElement[]>([]);
@@ -15,6 +54,14 @@ let observer: IntersectionObserver | null = null;
 
 onMounted(async () => {
   await integrations.load();
+  try {
+    const res = await api<{ categories: ServiceCategorySummary[] }>('/services');
+    servicesLive.value = res.categories;
+  } catch {
+    // leave empty, section will hide via v-if
+  } finally {
+    servicesLoading.value = false;
+  }
   observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
@@ -60,13 +107,7 @@ const advantages = [
   },
 ];
 
-const services = [
-  { name: 'Парикмахерский зал', count: '12 услуг', from: 'от 800 ₽' },
-  { name: 'Ногтевой сервис', count: '8 услуг', from: 'от 600 ₽' },
-  { name: 'Брови и ресницы', count: '6 услуг', from: 'от 500 ₽' },
-  { name: 'Макияж', count: '4 услуги', from: 'от 1 200 ₽' },
-  { name: 'SPA и уход', count: '6 услуг', from: 'от 1 500 ₽' },
-];
+// categoryPreviews is computed from servicesLive above (see imports/setup)
 
 const stats = [
   { value: '12+', label: 'лет на рынке' },
@@ -177,10 +218,20 @@ const stats = [
           </p>
         </div>
 
-        <div class="service-grid" :ref="registerReveal">
-          <article v-for="(s, i) in services" :key="s.name" class="service-row">
+        <div v-if="servicesLoading" class="service-grid service-grid--loading">
+          <div v-for="i in 5" :key="i" class="service-row service-row--skeleton">
+            <div class="service-row__num">--</div>
+            <div class="service-row__name">Загружаем…</div>
+            <div class="service-row__meta"><span class="service-row__count">—</span></div>
+          </div>
+        </div>
+        <div v-else-if="categoryPreviews.length" class="service-grid" :ref="registerReveal">
+          <article v-for="(s, i) in categoryPreviews" :key="s.name" class="service-row">
             <div class="service-row__num">{{ String(i + 1).padStart(2, '0') }}</div>
-            <div class="service-row__name">{{ s.name }}</div>
+            <div class="service-row__name">
+              <span v-if="s.icon" class="service-row__icon">{{ s.icon }}</span>
+              {{ s.name }}
+            </div>
             <div class="service-row__meta">
               <span class="service-row__count">{{ s.count }}</span>
               <span class="service-row__dot">·</span>
@@ -571,6 +622,18 @@ const stats = [
   font-size: clamp(1.2rem, 2vw, 1.5rem);
   font-weight: 500;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.service-row__icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+.service-row--skeleton {
+  pointer-events: none;
+  opacity: 0.35;
 }
 .service-row__meta {
   display: flex;
