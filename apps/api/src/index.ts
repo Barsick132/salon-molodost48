@@ -18,6 +18,7 @@ import integrationsPlugin from './plugins/integrations.js';
 import authPlugin from './plugins/auth.js';
 import publicIntegrationsRoutes from './routes/integrations.public.js';
 import adminIntegrationsRoutes from './routes/integrations.admin.js';
+import adminAuthRoutes from './routes/admin.auth.js';
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -64,6 +65,7 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Routes
   await app.register(publicIntegrationsRoutes, { prefix: '/api' });
+  await app.register(adminAuthRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
 
   // Health endpoint

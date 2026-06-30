@@ -5,7 +5,8 @@
  */
 
 import 'fastify';
-import type { PrismaClient } from '@prisma/client';
+import type { AdminUser } from '@prisma/client';
+import type { PrismaClient, AdminSession } from '@prisma/client';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -29,6 +30,21 @@ declare module 'fastify' {
         req: import('fastify').FastifyRequest,
         reply: import('fastify').FastifyReply,
       ): Promise<void>;
+      verifySession(
+        req: import('fastify').FastifyRequest,
+      ): Promise<{ session: AdminSession; user: AdminUser } | null>;
+      issueSession(
+        reply: import('fastify').FastifyReply,
+        user: AdminUser,
+        meta: { ip?: string; ua?: string },
+      ): Promise<AdminSession>;
+      revokeSession(
+        req: import('fastify').FastifyRequest,
+        reply: import('fastify').FastifyReply,
+      ): Promise<void>;
+      cookieName: string;
+      sessionTtlDays: number;
+      cookieOpts: Record<string, unknown>;
     };
 
     /**
@@ -44,7 +60,12 @@ declare module 'fastify' {
     adminUser?: {
       id: string;
       email: string;
+      displayName: string;
       role: string;
     };
+    /**
+     * Current session ID — populated by requireAdmin; used for revoke on logout.
+     */
+    adminSessionId?: string;
   }
 }
