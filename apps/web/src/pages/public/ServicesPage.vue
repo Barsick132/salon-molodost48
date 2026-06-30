@@ -516,14 +516,7 @@ function registerReveal(el: unknown) {
 .service-row {
   border-bottom: 1px solid var(--color-border);
   background: transparent;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: rowIn 0.5s var(--ease-out) forwards;
-  animation-delay: var(--delay, 0ms);
   transition: background var(--duration-fast) var(--ease-out);
-}
-@keyframes rowIn {
-  to { opacity: 1; transform: translateY(0); }
 }
 .service-row:hover { background: var(--color-surface-1); }
 .service-row--open { background: var(--color-surface-1); }
@@ -676,14 +669,14 @@ function registerReveal(el: unknown) {
 .bottom-link--accent:hover { background: var(--color-accent-hover); color: white; border-color: var(--color-accent-hover); }
 
 /* ===== REVEAL ===== */
-[class*='category'],
-.hero-lead,
-.hero-title,
-.eyebrow,
-.search-wrap {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+/* Removed initial opacity:0 / translateY20 to avoid invisible content
+   if IntersectionObserver doesn't fire (e.g. very tall content scrolled
+   into view before observer attaches). Hero still gets fade-in via .hero-inner animation below. */
+.hero-inner {
+  animation: heroIn 0.7s var(--ease-out);
 }
-.is-visible { opacity: 1; transform: translateY(0); }
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
