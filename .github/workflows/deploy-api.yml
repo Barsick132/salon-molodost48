@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: SSH and run one simple command
+      - name: SSH test 1 - simple command
         env:
           DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -21,8 +21,9 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=accept-new \
-              -o UserKnownHostsFile=/dev/null \
-              -o ConnectTimeout=10 \
-              "$SERVER_USER@$SERVER_HOST" -- bash -lc 'echo SSH_OK; node --version; ls /var/www/molodost48/api/apps/api | head'
+          echo "--- TEST 1: simple command ---"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 "$SERVER_USER@$SERVER_HOST" echo HELLO
+          echo "--- TEST 2: whoami ---"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null "$SERVER_USER@$SERVER_HOST" whoami
+          echo "--- TEST 3: bash -lc ---"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null "$SERVER_USER@$SERVER_HOST" bash -lc 'echo LOGIN_SHELL_OK'
