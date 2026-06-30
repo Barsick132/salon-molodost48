@@ -30,6 +30,9 @@ async function buildApp(): Promise<FastifyInstance> {
     bodyLimit: config.MAX_UPLOAD_BYTES,
   });
 
+  // Make config available to plugins/routes as app.config
+  app.decorate('config', config);
+
   // Security headers
   await app.register(fastifyHelmet, { contentSecurityPolicy: false });
 

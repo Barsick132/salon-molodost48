@@ -142,7 +142,11 @@ jobs:
           echo "STEP 6: restart"
           systemctl restart molodost48-api
           sleep 3
-          systemctl is-active molodost48-api
+          if ! systemctl is-active molodost48-api; then
+            echo "Service failed to start. Journal:"
+            journalctl -u molodost48-api -n 50 --no-pager
+            exit 1
+          fi
           echo "ALL OK"
           REMOTE_EOF
           chmod +x /tmp/remote-deploy.sh

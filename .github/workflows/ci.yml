@@ -30,6 +30,7 @@ jobs:
           grep packageManager package.json || echo "(none)"
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @molodost/api run db:generate
       - run: pnpm --filter @molodost/shared run typecheck
       - run: pnpm --filter @molodost/api run typecheck
       - run: pnpm --filter @molodost/web run typecheck
