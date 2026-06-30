@@ -121,16 +121,28 @@ function resolveCta(href: string): string {
   return href;
 }
 
+// Always fetch services on mount, independent of whether the visibility flags
+// have loaded yet. If the section ends up disabled we still waste one HTTP
+// round-trip, but we never get stuck in a skeleton forever.
+const servicesFetched = ref(false);
+async function loadServices() {
+  if (servicesFetched.value) return;
+  servicesFetched.value = true;
+  try {
+    const res = await api<{ categories: ServiceCategorySummary[] }>('/services');
+    servicesLive.value = res.categories;
+  } catch {
+    /* keep empty */
+  } finally {
+    servicesLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     blocksStore.fetchPublic(),
-    showServicesSection.value ? api<{ categories: ServiceCategorySummary[] }>('/services')
-      .then((r) => { servicesLive.value = r.categories; })
-      .catch(() => { /* keep empty */ })
-      .finally(() => { servicesLoading.value = false; })
-    : Promise.resolve(),
+    loadServices(),
   ]);
-  if (!showServicesSection.value) servicesLoading.value = false;
 });
 </script>
 
@@ -214,7 +226,7 @@ onMounted(async () => {
 
       <!-- ===== SERVICES (inserted after advantages/stats) ===== -->
       <section
-        v-if="showServicesSection && idx === servicesInsertAfter"
+        v-if="site.settings.loaded && showServicesSection && idx === servicesInsertAfter"
         class="services"
       >
         <div class="container">

@@ -19,13 +19,15 @@ const items = [
 
 <template>
   <aside class="admin-sidebar">
-    <div class="brand">Молодость · admin</div>
-    <nav>
-      <RouterLink v-for="i in items" :key="i.to" :to="i.to" @click="$emit('navigate')">
-        <span class="ico">{{ i.icon }}</span>
-        <span class="lbl">{{ i.label }}</span>
-      </RouterLink>
-    </nav>
+    <div class="admin-sidebar__inner">
+      <div class="brand">Молодость · admin</div>
+      <nav>
+        <RouterLink v-for="i in items" :key="i.to" :to="i.to" @click="$emit('navigate')">
+          <span class="ico">{{ i.icon }}</span>
+          <span class="lbl">{{ i.label }}</span>
+        </RouterLink>
+      </nav>
+    </div>
   </aside>
 </template>
 
@@ -33,10 +35,18 @@ const items = [
 .admin-sidebar {
   background: var(--color-surface-1);
   border-right: 1px solid var(--color-border);
-  padding: var(--space-6) var(--space-4);
-  overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
+  min-height: 100vh;
+  flex: 1;
+}
+.admin-sidebar__inner {
+  position: sticky;
+  top: 0;
+  padding: var(--space-6) var(--space-4);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 .brand {
   font-size: var(--font-size-lg);

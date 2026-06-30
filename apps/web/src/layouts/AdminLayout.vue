@@ -65,12 +65,16 @@ watch(() => route.fullPath, () => {
 .admin-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
+  align-items: start;
   min-height: 100vh;
 }
 .admin-sidebar-wrap {
   position: sticky;
   top: 0;
+  align-self: stretch;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 .admin-main {
   display: flex;
@@ -83,6 +87,7 @@ watch(() => route.fullPath, () => {
   flex: 1;
   min-width: 0;
 }
+
 @media (max-width: 900px) {
   .admin-layout {
     grid-template-columns: 1fr;
