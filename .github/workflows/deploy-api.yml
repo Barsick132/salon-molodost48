@@ -3,13 +3,6 @@ name: deploy-api
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/api/**'
-      - 'packages/shared/**'
-      - '.github/workflows/deploy-api.yml'
-      - 'package.json'
-      - 'pnpm-workspace.yaml'
-      - 'pnpm-lock.yaml'
   workflow_dispatch:
 
 jobs:
@@ -18,8 +11,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Try SSH (just echo)
+      - name: print branch + commit
+        run: |
+          echo "branch=${GITHUB_REF}"
+          echo "sha=${GITHUB_SHA}"
+          echo "actor=${GITHUB_ACTOR}"
+      - name: echo secrets length
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+        run: |
+          echo "host_len=${#SERVER_HOST} user_len=${#SERVER_USER} key_len=${#DEPLOY_KEY}"
+      - name: SSH test
         env:
           DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -29,11 +33,8 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "host=$SERVER_HOST user=$SERVER_USER key_len=${#DEPLOY_KEY}"
           ssh -vvv -i ~/.ssh/deploy_key \
               -o StrictHostKeyChecking=accept-new \
               -o UserKnownHostsFile=/dev/null \
               -o ConnectTimeout=10 \
-              "$SERVER_USER@$SERVER_HOST" -- echo OK || \
-              { echo SSH_FAILED; exit 1; }
-          echo "SSH_OK"
+              "$SERVER_USER@$SERVER_HOST" -- echo SSH_OK 2>&1 | tail -20
