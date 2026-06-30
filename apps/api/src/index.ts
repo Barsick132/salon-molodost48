@@ -76,6 +76,7 @@ async function buildApp(): Promise<FastifyInstance> {
   // Routes
   await app.register(publicIntegrationsRoutes, { prefix: '/api' });
   await app.register(publicServicesRoutes, { prefix: '/api' });
+  await app.register(settingsPublicRoutes, { prefix: '/api' });
   await app.register(adminAuthRoutes, { prefix: '/api/admin' });
   await app.register(adminPasswordResetRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
