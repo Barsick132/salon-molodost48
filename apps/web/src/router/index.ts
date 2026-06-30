@@ -25,9 +25,9 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: '/admin/services' },
       { path: 'services', name: 'admin-services', component: () => import('@/pages/admin/ServicesPage.vue') },
+      { path: 'blocks', name: 'admin-blocks', component: () => import('@/pages/admin/BlocksPage.vue') },
       { path: 'settings', name: 'admin-settings', component: () => import('@/pages/admin/SettingsPage.vue') },
       { path: 'integrations', name: 'admin-integrations', component: () => import('@/pages/admin/IntegrationsPage.vue') },
-      // blocks editor — wired in next deploy
     ],
   },
   { path: '/:catchAll(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue') },

@@ -21,6 +21,8 @@ import publicIntegrationsRoutes from './routes/integrations.public.js';
 import publicServicesRoutes from './routes/services.public.js';
 import adminIntegrationsRoutes from './routes/integrations.admin.js';
 import adminServicesRoutes from './routes/admin.services.js';
+import blocksAdminRoutes from './routes/blocks.admin.js';
+import blocksPublicRoutes from './routes/blocks.public.js';
 import settingsPublicRoutes from './routes/settings.public.js';
 import settingsAdminRoutes from './routes/settings.admin.js';
 import adminAuthRoutes from './routes/admin.auth.js';
@@ -75,12 +77,14 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Routes
   await app.register(publicIntegrationsRoutes, { prefix: '/api' });
+  await app.register(blocksPublicRoutes, { prefix: '/api' });
   await app.register(publicServicesRoutes, { prefix: '/api' });
   await app.register(settingsPublicRoutes, { prefix: '/api' });
   await app.register(adminAuthRoutes, { prefix: '/api/admin' });
   await app.register(adminPasswordResetRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
   await app.register(adminServicesRoutes, { prefix: '/api/admin' });
+  await app.register(blocksAdminRoutes, { prefix: '/api/admin' });
   await app.register(settingsAdminRoutes, { prefix: '/api/admin' });
 
   // Health endpoint
@@ -99,6 +103,15 @@ async function buildApp(): Promise<FastifyInstance> {
 
 async function main() {
   const app = await buildApp();
+
+  // First-boot: ensure default landing blocks exist so the home page has content
+  // even before the admin opens the editor. Idempotent.
+  try {
+    const { ensureDefaultBlocks } = await import('./routes/blocks.admin.js');
+    await ensureDefaultBlocks(app.prisma);
+  } catch (err) {
+    app.log.warn({ err }, 'ensureDefaultBlocks failed (non-fatal)');
+  }
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

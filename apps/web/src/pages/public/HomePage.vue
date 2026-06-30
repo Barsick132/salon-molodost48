@@ -1,18 +1,24 @@
 <script setup lang="ts">
 /**
- * HomePage — modern bento-style landing.
- * Renders the salon's value prop, advantages, services preview, and booking CTA.
- * Animations use IntersectionObserver for fade-up reveal on scroll.
+ * HomePage — block-driven landing.
+ *
+ * Pulls enabled blocks from /api/blocks (cached 30s on the server) and renders
+ * each one by `type`. The services preview is always rendered after the
+ * advantages block (when services page is enabled) — it's data, not content.
  */
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
+import { useBlocksStore, type BlockBase, type HeroPayload, type StatItem, type AdvantageItem, type CtaStripPayload } from '@/stores/blocks';
 import { api } from '@/api/client';
 
-const integrations = useIntegrationsStore();
 const site = useSiteStore();
+const integrations = useIntegrationsStore();
+const blocksStore = useBlocksStore();
 
-// Live services data from /api/services
+const blocks = computed(() => blocksStore.blocks);
+
+// ----- services preview -----
 interface ServiceSummary {
   id: string;
   name: string;
@@ -31,10 +37,6 @@ interface ServiceCategorySummary {
 const servicesLive = ref<ServiceCategorySummary[]>([]);
 const servicesLoading = ref(true);
 
-onMounted(async () => {
-  // ... existing observer init ...
-});
-
 const categoryPreviews = computed(() =>
   servicesLive.value.map((cat) => {
     const items = cat.services
@@ -50,681 +52,563 @@ const categoryPreviews = computed(() =>
   }),
 );
 
-// Reveal-on-scroll
-const reveals = ref<HTMLElement[]>([]);
-let observer: IntersectionObserver | null = null;
+const showServicesSection = computed(() =>
+  site.settings.loaded &&
+  site.settings.pages.servicesEnabled &&
+  site.settings.pages.homeServicesSectionEnabled,
+);
 
-onMounted(async () => {
-  await integrations.fetch();
-  try {
-    const res = await api<{ categories: ServiceCategorySummary[] }>('/services');
-    servicesLive.value = res.categories;
-  } catch {
-    // leave empty, section will hide via v-if
-  } finally {
-    servicesLoading.value = false;
+// Find index where to insert services — after the advantages block (if any),
+// otherwise after stats. If no blocks at all, services goes first.
+const servicesInsertAfter = computed(() => {
+  const list = blocks.value;
+  if (!list.length) return -1;
+  const idx = list.findIndex((b) => b.type === 'advantages');
+  if (idx === -1) {
+    const statsIdx = list.findIndex((b) => b.type === 'stats');
+    return statsIdx === -1 ? list.length - 1 : statsIdx;
   }
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible');
-          observer?.unobserve(entry.target);
-        }
-      }
-    },
-    { threshold: 0.15, rootMargin: '0px 0px -50px 0px' },
-  );
-  for (const el of reveals.value) observer.observe(el);
+  return idx;
 });
 
-onUnmounted(() => observer?.disconnect());
+function isHero(b: BlockBase): b is BlockBase & { payload: HeroPayload } { return b.type === 'hero'; }
+function isStats(b: BlockBase): b is BlockBase & { payload: { items: StatItem[] } } { return b.type === 'stats'; }
+function isAdvantages(b: BlockBase): b is BlockBase & { payload: { items: AdvantageItem[] } } { return b.type === 'advantages'; }
+function isCtaStrip(b: BlockBase): b is BlockBase & { payload: CtaStripPayload } { return b.type === 'cta-strip'; }
 
-function registerReveal(el: unknown) {
-  if (el instanceof HTMLElement && !reveals.value.includes(el)) {
-    reveals.value.push(el);
+// Helpers to safely pull items from a block's payload in templates (vue-tsc-friendly)
+const statsItems = (b: BlockBase): StatItem[] => (b.type === 'stats' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
+const advItems = (b: BlockBase): AdvantageItem[] => (b.type === 'advantages' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
+const heroPayload = (b: BlockBase): HeroPayload => (b.type === 'hero' ? (b.payload as unknown as HeroPayload) : { eyebrow: '', title: '', lead: '', primaryCtaLabel: '', primaryCtaHref: '', secondaryCtaLabel: '', secondaryCtaHref: '' });
+const ctaPayload = (b: BlockBase): CtaStripPayload => (b.type === 'cta-strip' ? (b.payload as unknown as CtaStripPayload) : { eyebrow: '', title: '', lead: '', ctaLabel: '', ctaHref: '' });
+
+// Map CTA href → integration booking url if it's the magic "dikidi" placeholder
+function resolveCta(href: string): string {
+  if (!href) return '#';
+  // Empty href or '#' → use dikidi widget url when enabled
+  if (href === '#' && integrations.dikidi.enabled && integrations.dikidi.widgetUrl) {
+    return integrations.dikidi.widgetUrl;
   }
+  return href;
 }
 
-const advantages = [
-  {
-    title: 'Бизнес-класс',
-    text: 'Премиальный сервис, который ощущается в каждой детали — от напитка на ресепшене до финального результата.',
-    icon: '✦',
-  },
-  {
-    title: 'Команда профи',
-    text: 'Стилисты с опытом 8+ лет, регулярные стажировки в Москве и Европе.',
-    icon: '◆',
-  },
-  {
-    title: "Только L'Oréal",
-    text: 'Профессиональная косметика, которой доверяют лучшие салоны мира.',
-    icon: '●',
-  },
-  {
-    title: 'В центре Липецка',
-    text: 'Удобная парковка, тихий двор на Пушкина — заходите как к себе домой.',
-    icon: '▲',
-  },
-];
-
-// categoryPreviews is computed from servicesLive above (see imports/setup)
-
-const stats = [
-  { value: '12+', label: 'лет на рынке' },
-  { value: '15 000+', label: 'довольных клиентов' },
-  { value: '8', label: 'мастеров' },
-  { value: '4.9', label: 'средняя оценка' },
-];
+onMounted(async () => {
+  await Promise.all([
+    blocksStore.fetchPublic(),
+    showServicesSection.value ? api<{ categories: ServiceCategorySummary[] }>('/services')
+      .then((r) => { servicesLive.value = r.categories; })
+      .catch(() => { /* keep empty */ })
+      .finally(() => { servicesLoading.value = false; })
+    : Promise.resolve(),
+  ]);
+  if (!showServicesSection.value) servicesLoading.value = false;
+});
 </script>
 
 <template>
   <div class="home">
-    <!-- HERO -->
-    <section class="hero">
-      <div class="hero-bg" aria-hidden="true">
-        <div class="hero-glow hero-glow--1"></div>
-        <div class="hero-glow hero-glow--2"></div>
-        <div class="hero-grid"></div>
-      </div>
-
-      <div class="container hero-inner">
-        <div class="eyebrow" :ref="registerReveal">
-          <span class="dot"></span>
-          Салон красоты в Липецке · с 2013 года
-        </div>
-
-        <h1 class="hero-title" :ref="registerReveal">
-          Молодость —<br />
-          это не возраст.<br />
-          <span class="accent">Это состояние.</span>
-        </h1>
-
-        <p class="hero-lead" :ref="registerReveal">
-          Премиальный салон красоты в центре Липецка.
-          Стилисты с мировым опытом, косметика L'Oréal,
-          атмосфера, в которую хочется возвращаться.
-        </p>
-
-        <div class="hero-cta" :ref="registerReveal">
-          <a
-            href="https://dikidi.ru/#widget=212727"
-            class="hero-dikidi-btn"
-            target="_self"
-          >
-            Записаться онлайн
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-          <a href="/services" class="hero-link">
-            Смотреть услуги
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-        </div>
-
-        <div class="hero-stats" :ref="registerReveal">
-          <div v-for="s in stats" :key="s.label" class="hero-stat">
-            <div class="hero-stat__value">{{ s.value }}</div>
-            <div class="hero-stat__label">{{ s.label }}</div>
+    <!-- ============== BLOCKS ============== -->
+    <template v-for="(b, idx) in blocks" :key="b.id">
+      <!-- ===== HERO ===== -->
+      <section v-if="isHero(b)" class="hero">
+        <div class="container">
+          <div class="hero-inner">
+            <div v-if="heroPayload(b).eyebrow" class="eyebrow">{{ heroPayload(b).eyebrow }}</div>
+            <h1 class="hero-title">{{ heroPayload(b).title }}</h1>
+            <p v-if="heroPayload(b).lead" class="hero-lead">
+              {{ heroPayload(b).lead }}
+            </p>
+            <div class="hero-cta">
+              <a v-if="heroPayload(b).primaryCtaLabel" :href="resolveCta(heroPayload(b).primaryCtaHref)" class="hero-cta__primary">
+                {{ heroPayload(b).primaryCtaLabel }}
+              </a>
+              <a v-if="heroPayload(b).secondaryCtaLabel" :href="resolveCta(heroPayload(b).secondaryCtaHref)" class="hero-cta__secondary">
+                {{ heroPayload(b).secondaryCtaLabel }} →
+              </a>
+            </div>
+          </div>
+          <div class="hero-bg" aria-hidden="true">
+            <div class="hero-bg__grid"></div>
+            <div class="hero-bg__glow"></div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="hero-scroll-hint" aria-hidden="true">
-        <span>прокрутите</span>
-        <div class="hero-scroll-line"></div>
-      </div>
-    </section>
-
-    <!-- ADVANTAGES (bento) -->
-    <section class="advantages">
-      <div class="container">
-        <div class="section-head" :ref="registerReveal">
-          <div class="section-tag">Почему мы</div>
-          <h2 class="section-title">Детали решают.</h2>
-          <p class="section-lead">
-            Мы уделяем внимание тем мелочам, которые превращают обычный визит в салон
-            в ритуал, к которому хочется возвращаться.
-          </p>
+      <!-- ===== STATS ===== -->
+      <section v-else-if="isStats(b)" class="stats">
+        <div class="container">
+          <ul class="stats-row">
+            <li v-for="(s, i) in statsItems(b)" :key="i" class="stats-row__cell">
+              <div class="stats-row__value">{{ s.value }}</div>
+              <div class="stats-row__label">{{ s.label }}</div>
+            </li>
+          </ul>
         </div>
+      </section>
 
-        <div class="bento">
-          <article
-            v-for="(adv, i) in advantages"
-            :key="adv.title"
-            class="bento-card"
-            :class="`bento-card--${i + 1}`"
-            :ref="registerReveal"
-          >
-            <div class="bento-card__icon">{{ adv.icon }}</div>
-            <h3 class="bento-card__title">{{ adv.title }}</h3>
-            <p class="bento-card__text">{{ adv.text }}</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICES PREVIEW -->
-    <section v-if="site.settings.pages.homeServicesSectionEnabled && site.settings.pages.servicesEnabled" class="services">
-      <div class="container">
-        <div class="section-head" :ref="registerReveal">
-          <div class="section-tag">Услуги</div>
-          <h2 class="section-title">Полный спектр.</h2>
-          <p class="section-lead">
-            От стрижки до комплексного ухода — всё в одном месте.
-            Записывайтесь онлайн, выбирайте мастера и удобное время.
-          </p>
-        </div>
-
-        <div v-if="servicesLoading" class="service-grid service-grid--loading">
-          <div v-for="i in 5" :key="i" class="service-row service-row--skeleton">
-            <div class="service-row__num">--</div>
-            <div class="service-row__name">Загружаем…</div>
-            <div class="service-row__meta"><span class="service-row__count">—</span></div>
+      <!-- ===== ADVANTAGES ===== -->
+      <section v-else-if="isAdvantages(b)" class="advantages">
+        <div class="container">
+          <div class="bento">
+            <article
+              v-for="(a, i) in advItems(b)"
+              :key="i"
+              :class="['bento-card', `bento-card--${i}`]"
+            >
+              <span class="bento-card__icon">{{ a.icon }}</span>
+              <h3 class="bento-card__title">{{ a.title }}</h3>
+              <p class="bento-card__text">{{ a.description }}</p>
+            </article>
           </div>
         </div>
-        <div v-else-if="categoryPreviews.length" class="service-grid" :ref="registerReveal">
-          <article v-for="(s, i) in categoryPreviews" :key="s.name" class="service-row">
-            <div class="service-row__num">{{ String(i + 1).padStart(2, '0') }}</div>
-            <div class="service-row__name">
-              <span v-if="s.icon" class="service-row__icon">{{ s.icon }}</span>
-              {{ s.name }}
+      </section>
+
+      <!-- ===== CTA STRIP ===== -->
+      <section v-else-if="isCtaStrip(b)" class="cta-strip">
+        <div class="container">
+          <div class="cta-strip__inner">
+            <div class="cta-strip__text">
+              <div v-if="ctaPayload(b).eyebrow" class="eyebrow">{{ ctaPayload(b).eyebrow }}</div>
+              <h2>{{ ctaPayload(b).title }}</h2>
+              <p v-if="ctaPayload(b).lead">{{ ctaPayload(b).lead }}</p>
             </div>
-            <div class="service-row__meta">
-              <span class="service-row__count">{{ s.count }}</span>
-              <span class="service-row__dot">·</span>
-              <span class="service-row__price">{{ s.from }}</span>
+            <a v-if="ctaPayload(b).ctaLabel" :href="resolveCta(ctaPayload(b).ctaHref)" class="cta-strip__btn">
+              {{ ctaPayload(b).ctaLabel }} →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== SERVICES (inserted after advantages/stats) ===== -->
+      <section
+        v-if="showServicesSection && idx === servicesInsertAfter"
+        class="services"
+      >
+        <div class="container">
+          <div class="section-head">
+            <div class="section-tag">Услуги</div>
+            <h2 class="section-title">Полный спектр.</h2>
+            <p class="section-lead">
+              От стрижки до комплексного ухода — всё в одном месте.
+              Записывайтесь онлайн, выбирайте мастера и удобное время.
+            </p>
+          </div>
+
+          <div v-if="servicesLoading" class="service-grid service-grid--loading">
+            <div v-for="i in 5" :key="i" class="service-row service-row--skeleton">
+              <div class="service-row__num">--</div>
+              <div class="service-row__name">Загружаем…</div>
+              <div class="service-row__meta"><span class="service-row__count">—</span></div>
             </div>
-            <a href="/services" class="service-row__arrow" aria-label="Подробнее">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </div>
+          <div v-else-if="categoryPreviews.length" class="service-grid">
+            <article v-for="(s, i) in categoryPreviews" :key="s.name" class="service-row">
+              <div class="service-row__num">{{ String(i + 1).padStart(2, '0') }}</div>
+              <div class="service-row__name">
+                <span v-if="s.icon" class="service-row__icon">{{ s.icon }}</span>
+                {{ s.name }}
+              </div>
+              <div class="service-row__meta">
+                <span class="service-row__count">{{ s.count }}</span>
+                <span class="service-row__dot">·</span>
+                <span class="service-row__price">{{ s.from }}</span>
+              </div>
+              <a href="/services" class="service-row__arrow" aria-label="Подробнее">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
+            </article>
+          </div>
+
+          <div class="services-cta">
+            <a href="/services" class="all-link">
+              Все услуги и цены
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M3 7h8M8 4l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </a>
-          </article>
+          </div>
         </div>
+      </section>
+    </template>
 
-        <div class="services-cta" :ref="registerReveal">
-          <a href="/services" class="all-link">
-            Все услуги и цены
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-        </div>
+    <!-- Empty-state hint for first-time visitors -->
+    <div v-if="!blocksStore.loading && blocks.length === 0" class="empty-state">
+      <div class="container">
+        <h1>Скоро здесь появится ваш сайт</h1>
+        <p>Откройте админку → Блоки лендинга, чтобы добавить первый блок.</p>
       </div>
-    </section>
-
-    <!-- CTA STRIP -->
-    <section class="cta-strip">
-      <div class="container cta-strip__inner">
-        <div class="cta-strip__text" :ref="registerReveal">
-          <h2>Готовы записаться?</h2>
-          <p>Выберите мастера и время в один клик — без звонков и ожидания.</p>
-        </div>
-        <div :ref="registerReveal">
-          <a
-            href="https://dikidi.ru/#widget=212727"
-            class="hero-dikidi-btn"
-            target="_self"
-          >
-            Записаться в Dikidi
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </a>
-        </div>
-      </div>
-    </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.home {
-  --gutter: clamp(1.25rem, 4vw, 2rem);
-}
+.home { padding-bottom: 0; }
 
-/* ===== HERO ===== */
+/* ============ HERO ============ */
 .hero {
   position: relative;
-  min-height: clamp(640px, 100vh, 880px);
-  display: flex;
-  align-items: center;
+  padding: 5rem 0 4rem;
   overflow: hidden;
-  padding: clamp(4rem, 12vh, 9rem) 0 clamp(3rem, 8vh, 6rem);
-  isolation: isolate;
 }
-.hero-bg {
-  position: absolute; inset: 0;
-  z-index: -1;
-  background: var(--color-bg);
-}
-.hero-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.4;
-  pointer-events: none;
-}
-.hero-glow--1 {
-  width: 520px; height: 520px;
-  top: -120px; right: -120px;
-  background: radial-gradient(circle, var(--color-accent) 0%, transparent 70%);
-  animation: float-a 14s ease-in-out infinite alternate;
-}
-.hero-glow--2 {
-  width: 420px; height: 420px;
-  bottom: -100px; left: -100px;
-  background: radial-gradient(circle, #6366f1 0%, transparent 70%);
-  opacity: 0.25;
-  animation: float-b 18s ease-in-out infinite alternate;
-}
-.hero-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 80px 80px;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
-}
-@keyframes float-a { from { transform: translate(0, 0); } to { transform: translate(-60px, 40px); } }
-@keyframes float-b { from { transform: translate(0, 0); } to { transform: translate(80px, -30px); } }
-
-.hero-inner {
-  position: relative;
-  z-index: 1;
-}
+.hero-inner { max-width: 760px; position: relative; z-index: 2; }
 .eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.9rem 0.4rem 0.7rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
-  font-size: 0.825rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(8px);
-  margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-accent);
+  margin-bottom: 1.25rem;
+  font-weight: 600;
 }
-.eyebrow .dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 8px var(--color-accent-glow);
-  animation: pulse 2.5s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.55; transform: scale(0.85); }
-}
-
 .hero-title {
   font-family: var(--font-display);
+  font-size: clamp(2.25rem, 6vw, 4rem);
   font-weight: 600;
-  font-size: clamp(2.5rem, 7.5vw, 5.5rem);
-  line-height: 1.02;
-  letter-spacing: -0.035em;
-  max-width: 16ch;
-  margin-bottom: clamp(1.25rem, 3vw, 2rem);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 1.5rem;
   color: var(--color-text-primary);
 }
-.hero-title .accent {
-  font-style: italic;
-  font-weight: 400;
-  color: var(--color-accent);
-}
-
 .hero-lead {
-  font-size: clamp(1.05rem, 1.5vw, 1.2rem);
-  line-height: 1.55;
+  font-size: 1.125rem;
+  line-height: 1.5;
   color: var(--color-text-secondary);
-  max-width: 48ch;
-  margin-bottom: clamp(2rem, 5vw, 3rem);
+  margin-bottom: 2rem;
+  max-width: 580px;
 }
-
 .hero-cta {
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  margin-bottom: clamp(3rem, 7vw, 5rem);
-}
-.hero-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--color-border-strong);
-  transition: all var(--duration-base) var(--ease-out);
-}
-.hero-link:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
-.hero-dikidi-btn {
+.hero-cta__primary {
   display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
+  padding: 0.85rem 1.75rem;
   background: var(--color-accent);
   color: white;
-  padding: 1rem 1.75rem;
-  border-radius: var(--radius-full);
   font-weight: 600;
-  font-size: 1.05rem;
-  box-shadow: 0 6px 20px var(--color-accent-glow), 0 1px 2px rgba(0,0,0,0.3);
-  transition: all var(--duration-base) var(--ease-out);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-size: 1rem;
+  transition: background 0.15s ease;
 }
-.hero-dikidi-btn:hover {
-  background: var(--color-accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px var(--color-accent-glow), 0 2px 4px rgba(0,0,0,0.4);
-  color: white;
-  gap: 0.875rem;
+.hero-cta__primary:hover { background: var(--color-accent-hover); }
+.hero-cta__secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.85rem 1.5rem;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  font-size: 1rem;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
-.hero-dikidi-btn svg { transition: transform var(--duration-base) var(--ease-out); }
-.hero-dikidi-btn:hover svg { transform: translateX(3px); }
+.hero-cta__secondary:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
-.hero-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
-  max-width: 720px;
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
 }
-.hero-stat__value {
+.hero-bg__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(225, 29, 72, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(225, 29, 72, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 60% 60% at 80% 20%, black, transparent 80%);
+}
+.hero-bg__glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(225, 29, 72, 0.15), transparent 70%);
+  top: -200px;
+  right: -100px;
+  filter: blur(40px);
+}
+
+/* ============ STATS ============ */
+.stats { padding: 1rem 0 3rem; }
+.stats-row {
+  list-style: none;
+  margin: 0;
+  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.stats-row__cell {
+  padding: 0.5rem 1rem;
+  border-left: 2px solid var(--color-accent);
+}
+.stats-row__cell:first-child { border-left: none; }
+.stats-row__value {
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
   font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1;
-  margin-bottom: 0.4rem;
+  color: var(--color-text-primary);
+  margin-bottom: 0.2rem;
 }
-.hero-stat__label {
-  font-size: 0.825rem;
-  color: var(--color-text-muted);
+.stats-row__label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
-.hero-scroll-hint {
-  position: absolute;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.7rem;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  z-index: 2;
-}
-.hero-scroll-line {
-  width: 1px; height: 32px;
-  background: linear-gradient(to bottom, var(--color-text-muted), transparent);
-  animation: scroll-pulse 2s ease-in-out infinite;
-}
-@keyframes scroll-pulse {
-  0%, 100% { opacity: 0.3; transform: scaleY(0.6); transform-origin: top; }
-  50% { opacity: 1; transform: scaleY(1); }
-}
-
-/* ===== SECTION HEAD (shared) ===== */
-.section-head {
-  max-width: 720px;
-  margin: 0 auto clamp(2.5rem, 6vw, 4rem);
-  text-align: center;
-}
-.section-tag {
-  display: inline-block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-accent);
-  margin-bottom: 1rem;
-}
-.section-title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(2rem, 4.5vw, 3rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  margin-bottom: 1rem;
-}
-.section-lead {
-  font-size: 1.05rem;
-  line-height: 1.55;
-  color: var(--color-text-secondary);
-}
-
-/* ===== ADVANTAGES (bento) ===== */
-.advantages {
-  padding: clamp(4rem, 10vw, 8rem) 0;
-}
+/* ============ ADVANTAGES (BENTO) ============ */
+.advantages { padding: 3rem 0; }
 .bento {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(12, 1fr);
   gap: 1rem;
 }
 .bento-card {
-  grid-column: span 3;
   position: relative;
-  padding: 2rem 1.75rem;
-  background: linear-gradient(180deg, var(--color-surface-1) 0%, var(--color-surface-2) 100%);
+  padding: 1.75rem;
+  background: var(--color-surface-1);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: all var(--duration-base) var(--ease-out);
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 .bento-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at top right, rgba(225, 29, 72, 0.08), transparent 60%);
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
+  background: radial-gradient(circle at 80% 0%, rgba(225, 29, 72, 0.08), transparent 60%);
   pointer-events: none;
 }
-.bento-card:hover {
-  border-color: var(--color-border-strong);
-  transform: translateY(-2px);
-}
-.bento-card:hover::before { opacity: 1; }
-.bento-card--1 { grid-column: span 4; min-height: 280px; }
-.bento-card--2 { grid-column: span 2; min-height: 280px; }
-.bento-card--3 { grid-column: span 2; min-height: 280px; }
-.bento-card--4 { grid-column: span 4; min-height: 280px; }
+.bento-card--0 { grid-column: span 6; }
+.bento-card--1 { grid-column: span 6; }
+.bento-card--2 { grid-column: span 4; }
+.bento-card--3 { grid-column: span 8; }
 .bento-card__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px; height: 44px;
-  border-radius: var(--radius-md);
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
   background: rgba(225, 29, 72, 0.12);
-  border: 1px solid rgba(225, 29, 72, 0.25);
   color: var(--color-accent);
-  font-size: 1.1rem;
-  margin-bottom: 1.25rem;
-}
-.bento-card--1 .bento-card__icon,
-.bento-card--4 .bento-card__icon {
-  width: 56px; height: 56px;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
+  position: relative;
 }
 .bento-card__title {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
-}
-.bento-card--1 .bento-card__title,
-.bento-card--4 .bento-card__title {
-  font-size: 1.875rem;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  position: relative;
 }
 .bento-card__text {
-  color: var(--color-text-secondary);
   font-size: 0.95rem;
-  line-height: 1.55;
-  max-width: 42ch;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  position: relative;
 }
 
-@media (max-width: 900px) {
-  .bento { grid-template-columns: 1fr 1fr; }
-  .bento-card, .bento-card--1, .bento-card--2, .bento-card--3, .bento-card--4 {
-    grid-column: span 1;
-    min-height: 0;
-  }
+/* ============ SERVICES ============ */
+.services { padding: 4rem 0 3rem; }
+.section-head { max-width: 720px; margin-bottom: 2.5rem; }
+.section-tag {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-accent);
+  margin-bottom: 1rem;
+  font-weight: 600;
 }
-
-/* ===== SERVICES ===== */
-.services {
-  padding: clamp(4rem, 10vw, 8rem) 0;
-  background: linear-gradient(180deg, transparent, var(--color-surface-1), transparent);
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
 }
-.service-grid {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--color-border);
+.section-lead {
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.5;
 }
+.service-grid { display: flex; flex-direction: column; }
 .service-row {
   display: grid;
-  grid-template-columns: 60px 1fr auto 40px;
-  gap: 1.5rem;
+  grid-template-columns: 60px 1fr auto 32px;
+  gap: 1rem;
   align-items: center;
-  padding: 1.5rem 0.5rem;
-  border-bottom: 1px solid var(--color-border);
-  transition: background var(--duration-fast) var(--ease-out);
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--color-border);
+  transition: padding 0.2s var(--ease-out);
 }
-.service-row:hover {
-  background: var(--color-surface-1);
-  padding-left: 1rem;
-}
+.service-row:hover { padding-left: 0.5rem; }
+.service-row:last-child { border-bottom: 1px solid var(--color-border); }
 .service-row__num {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
   color: var(--color-text-muted);
-  font-weight: 500;
 }
 .service-row__name {
-  font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
 }
 .service-row__icon {
-  font-size: 1.2rem;
-  line-height: 1;
-  opacity: 0.85;
-}
-.service-row--skeleton {
-  pointer-events: none;
-  opacity: 0.35;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(225, 29, 72, 0.1);
+  font-size: 0.95rem;
 }
 .service-row__meta {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  font-size: 0.95rem;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-.service-row__count { font-weight: 500; }
-.service-row__dot { color: var(--color-text-muted); }
-.service-row__price { color: var(--color-text-muted); }
-.service-row__arrow {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 40px; height: 40px;
-  border: 1px solid var(--color-border);
+  gap: 0.5rem;
+}
+.service-row__count { color: var(--color-text-muted); }
+.service-row__price { color: var(--color-text-primary); font-weight: 600; }
+.service-row__arrow {
+  width: 32px; height: 32px;
   border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-2);
   color: var(--color-text-secondary);
-  transition: all var(--duration-fast) var(--ease-out);
+  border: 1px solid var(--color-border);
+  transition: all 0.15s ease;
 }
 .service-row:hover .service-row__arrow {
   background: var(--color-accent);
   color: white;
   border-color: var(--color-accent);
-  transform: translateX(2px);
+}
+.service-row--skeleton .service-row__name {
+  height: 1rem;
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  width: 40%;
+  color: transparent;
+}
+.service-row--skeleton .service-row__count {
+  height: 0.8rem;
+  background: var(--color-surface-2);
+  width: 80px;
+  border-radius: 4px;
+  color: transparent;
 }
 
-@media (max-width: 700px) {
-  .service-row { grid-template-columns: 40px 1fr auto; }
-  .service-row__arrow { display: none; }
-  .service-row__meta { font-size: 0.8rem; }
-}
-
-.services-cta {
-  margin-top: 2.5rem;
-  text-align: center;
-}
+.services-cta { margin-top: 1.5rem; }
 .all-link {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 500;
+  padding: 0.7rem 1.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   color: var(--color-text-primary);
-  padding: 0.75rem 1.5rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
-  transition: all var(--duration-base) var(--ease-out);
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
 }
-.all-link:hover {
-  background: var(--color-surface-2);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
+.all-link:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
-/* ===== CTA STRIP ===== */
+/* ============ CTA STRIP ============ */
 .cta-strip {
-  padding: clamp(3rem, 6vw, 5rem) 0;
-  background: var(--color-bg);
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  padding: 4rem 0 6rem;
+  position: relative;
 }
 .cta-strip__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 2rem;
-  flex-wrap: wrap;
+  align-items: center;
+  padding: 2.5rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+.cta-strip__inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 100% 0%, rgba(225, 29, 72, 0.08), transparent 50%);
+  pointer-events: none;
 }
 .cta-strip__text h2 {
   font-family: var(--font-display);
   font-size: clamp(1.5rem, 3vw, 2rem);
   font-weight: 600;
   letter-spacing: -0.02em;
-  margin-bottom: 0.4rem;
+  margin: 0 0 0.5rem;
+  color: var(--color-text-primary);
 }
 .cta-strip__text p {
+  margin: 0;
   color: var(--color-text-secondary);
+  font-size: 1rem;
+  position: relative;
 }
+.cta-strip__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.85rem 1.75rem;
+  background: var(--color-accent);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-size: 1rem;
+  position: relative;
+  white-space: nowrap;
+}
+.cta-strip__btn:hover { background: var(--color-accent-hover); }
 
-/* ===== REVEAL ANIMATIONS removed =====
-   The initial opacity:0 + transform caused invisible content when
-   IntersectionObserver didn't fire reliably. Hero fades in via .hero-inner
-   keyframe below. All other sections render visible by default. */
-.hero-inner {
-  animation: heroIn 0.7s var(--ease-out);
-}
-@keyframes heroIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ============ EMPTY STATE ============ */
+.empty-state { padding: 6rem 0; text-align: center; color: var(--color-text-muted); }
+.empty-state h1 { font-family: var(--font-display); font-size: 1.75rem; margin-bottom: 0.5rem; }
+
+@media (max-width: 800px) {
+  .hero { padding: 3rem 0 2rem; }
+  .bento-card--0, .bento-card--1, .bento-card--2, .bento-card--3 {
+    grid-column: span 12;
+  }
+  .cta-strip__inner {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .service-row {
+    grid-template-columns: 36px 1fr auto;
+    gap: 0.6rem;
+  }
+  .service-row__arrow { display: none; }
+  .stats-row__cell { border-left: none; border-top: 2px solid var(--color-accent); padding: 0.5rem 0; }
+  .stats-row__cell:first-child { border-top: none; }
 }
 </style>
