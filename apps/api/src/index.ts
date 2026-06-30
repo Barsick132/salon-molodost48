@@ -21,6 +21,7 @@ import publicIntegrationsRoutes from './routes/integrations.public.js';
 import publicServicesRoutes from './routes/services.public.js';
 import adminIntegrationsRoutes from './routes/integrations.admin.js';
 import adminServicesRoutes from './routes/admin.services.js';
+import mediaAdminRoutes from './routes/media.admin.js';
 import blocksAdminRoutes from './routes/blocks.admin.js';
 import blocksPublicRoutes from './routes/blocks.public.js';
 import settingsPublicRoutes from './routes/settings.public.js';
@@ -54,6 +55,9 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Cookies + JWT
   await app.register(fastifyCookie, { secret: config.COOKIE_SECRET });
+  await app.register((await import('@fastify/multipart')).default, {
+    limits: { fileSize: 12 * 1024 * 1024 },
+  });
   await app.register(fastifyJwt, { secret: config.JWT_SECRET });
 
   // Rate limiting (apply only to API, generous limits)
@@ -84,6 +88,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminPasswordResetRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
   await app.register(adminServicesRoutes, { prefix: '/api/admin' });
+  await app.register(mediaAdminRoutes, { prefix: '/api/admin' });
   await app.register(blocksAdminRoutes, { prefix: '/api/admin' });
   await app.register(settingsAdminRoutes, { prefix: '/api/admin' });
 

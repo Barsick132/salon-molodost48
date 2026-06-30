@@ -44,10 +44,37 @@ function emptyHero(): HeroPayload {
     primaryCtaHref: '',
     secondaryCtaLabel: '',
     secondaryCtaHref: '',
+    imageUrl: '',
   };
 }
 function emptyCta(): CtaStripPayload {
   return { eyebrow: '', title: '', lead: '', ctaLabel: 'Записаться', ctaHref: '' };
+}
+
+// Hero image uploader (uses /api/admin/media)
+const heroImageUploading = ref(false);
+async function uploadHeroImage() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp';
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    heroImageUploading.value = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      const res = await fetch('/api/admin/media', { method: 'POST', body: fd, credentials: 'include' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json() as { url: string };
+      heroForm.value.imageUrl = data.url;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'upload failed');
+    } finally {
+      heroImageUploading.value = false;
+    }
+  };
+  input.click();
 }
 
 const sortedBlocks = computed(() => [...store.blocks].sort((a, b) => a.order - b.order));
@@ -273,6 +300,21 @@ onMounted(store.fetchAdmin);
               <!-- HERO -->
               <template v-if="(editing.kind === 'existing' ? editing.block.type : newType) === 'hero'">
                 <label class="field">
+                  <span class="field__label">Картинка справа</span>
+                  <div class="image-uploader">
+                    <div class="image-uploader__preview">
+                      <img v-if="heroForm.imageUrl" :src="heroForm.imageUrl" alt="" />
+                      <span v-else class="image-uploader__placeholder">не выбрана</span>
+                    </div>
+                    <div class="image-uploader__actions">
+                      <button type="button" class="btn" :disabled="heroImageUploading" @click="uploadHeroImage">
+                        {{ heroImageUploading ? 'Загружаем…' : 'Загрузить' }}
+                      </button>
+                      <button v-if="heroForm.imageUrl" type="button" class="btn btn--ghost" @click="heroForm.imageUrl = ''">Удалить</button>
+                    </div>
+                  </div>
+                </label>
+                <label class="field">
                   <span class="field__label">Eyebrow (мелкий текст над заголовком)</span>
                   <input v-model="heroForm.eyebrow" class="field__input" />
                 </label>
@@ -320,9 +362,15 @@ onMounted(store.fetchAdmin);
 
               <!-- ADVANTAGES -->
               <template v-else-if="(editing.kind === 'existing' ? editing.block.type : newType) === 'advantages'">
+                <p class="hint">
+                  Иконка: одно из ключевых слов —
+                  <code>tag</code> · <code>shield</code> · <code>clock</code> · <code>coffee</code> ·
+                  <code>star</code> · <code>scissors</code> · <code>sparkles</code>.
+                  Любой другой текст появится как есть.
+                </p>
                 <div class="repeater">
                   <div v-for="(a, i) in advForm" :key="i" class="repeater__row repeater__row--3">
-                    <input v-model="a.icon" class="field__input" placeholder="✦" maxlength="4" />
+                    <input v-model="a.icon" class="field__input" placeholder="tag" />
                     <input v-model="a.title" class="field__input" placeholder="Заголовок" />
                     <input v-model="a.description" class="field__input" placeholder="Описание" />
                     <button type="button" class="icon-btn icon-btn--danger" @click="removeAdvRow(i)">✕</button>
@@ -570,6 +618,42 @@ onMounted(store.fetchAdmin);
   align-self: start;
 }
 .link-btn:hover { color: var(--color-accent); border-color: var(--color-accent); }
+
+.image-uploader { display: flex; align-items: center; gap: 0.85rem; }
+.image-uploader__preview {
+  width: 96px; height: 96px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.image-uploader__preview img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.image-uploader__placeholder {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.image-uploader__actions { display: flex; flex-direction: column; gap: 0.4rem; }
+.image-uploader__actions .btn { font-size: 0.8rem; padding: 0.4rem 0.8rem; width: fit-content; }
+.btn--ghost-btn { background: transparent; }
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.hint code {
+  background: var(--color-surface-3);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.18s ease; }
 .fade-enter-active .drawer, .fade-leave-active .drawer { transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1); }

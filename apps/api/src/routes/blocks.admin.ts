@@ -42,6 +42,7 @@ const Hero = z.object({
   primaryCtaHref: z.string().max(500).default(''),
   secondaryCtaLabel: z.string().max(40).default(''),
   secondaryCtaHref: z.string().max(500).default(''),
+  imageUrl: z.string().max(1000).default(''),
 });
 const Stats = z.object({
   items: z.array(ItemValue).min(1).max(8),
@@ -93,6 +94,7 @@ export const DEFAULT_BLOCKS: Array<{
       primaryCtaHref: 'https://dikidi.ru/#widget=212727',
       secondaryCtaLabel: 'Узнать цены',
       secondaryCtaHref: '/services',
+      imageUrl: '/media/hero-default.jpg',
     },
   },
   {
@@ -110,10 +112,10 @@ export const DEFAULT_BLOCKS: Array<{
     type: 'advantages',
     payload: {
       items: [
-        { icon: '✦', title: 'Без скрытых платежей', description: 'Цена в прайсе — окончательная. Без доплат и навязанных услуг.' },
-        { icon: '◇', title: 'Стерильные инструменты', description: 'Трёхступенчатая стерилизация после каждого клиента.' },
-        { icon: '◐', title: 'Гибкий график', description: 'Записывайтесь онлайн — это быстрее, чем по телефону.' },
-        { icon: '◉', title: 'Уютная атмосфера', description: 'Чай, кофе, приятная музыка и лёгкая расслабленность.' },
+        { icon: 'tag', title: 'Без скрытых платежей', description: 'Цена в прайсе — окончательная. Без доплат и навязанных услуг.' },
+        { icon: 'shield', title: 'Стерильные инструменты', description: 'Трёхступенчатая стерилизация после каждого клиента.' },
+        { icon: 'clock', title: 'Гибкий график', description: 'Онлайн-запись в пару кликов в любое время суток.' },
+        { icon: 'coffee', title: 'Уютная атмосфера', description: 'Чай, кофе, спокойная музыка и ни одного телефонного звонка.' },
       ],
     },
   },

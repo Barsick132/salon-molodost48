@@ -3,14 +3,14 @@
  * Admin SettingsPage — manages SiteSettings.
  *
  * Sections:
- *   • Brand       — name, tagline, SEO, accent color
+ *   • Brand       — name, tagline, SEO, accent color, **logo upload**, **favicon upload**
  *   • Contact     — short/long address, phones, email, hours, socials
  *   • Map         — provider (Yandex by default), coords, custom iframe, custom marker URL, zoom
  *   • Visibility  — page and section toggles (services, masters, contacts …)
  *
  * Each section saves independently via PUT /admin/site/{section}.
  */
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { api, ApiError } from '@/api/client';
 
 interface WorkingHour { day: string; label: string; open: string; close: string; isDayOff: boolean; }
@@ -30,6 +30,7 @@ const saving = ref<Record<Section, boolean>>({ contact: false, map: false, visib
 const message = ref<Record<Section, { type: 'ok' | 'error'; text: string } | null>>({
   contact: null, map: null, visibility: null, brand: null,
 });
+const uploadError = ref<string | null>(null);
 
 // Brand
 const brand = ref({
@@ -38,7 +39,54 @@ const brand = ref({
   seoTitle: '',
   seoDescription: '',
   accentColor: '#E11D48',
+  logoUrl: '',
+  faviconUrl: '',
 });
+const logoUploading = ref(false);
+const faviconUploading = ref(false);
+
+async function uploadImage(field: 'logo' | 'favicon', file: File) {
+  if (field === 'logo') logoUploading.value = true;
+  else faviconUploading.value = true;
+  uploadError.value = null;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/admin/media', {
+      method: 'POST',
+      body: fd,
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || `${res.status}`);
+    }
+    const data = await res.json() as { url: string };
+    if (field === 'logo') brand.value.logoUrl = data.url;
+    else brand.value.faviconUrl = data.url;
+  } catch (e) {
+    uploadError.value = e instanceof Error ? e.message : 'upload failed';
+  } finally {
+    if (field === 'logo') logoUploading.value = false;
+    else faviconUploading.value = false;
+  }
+}
+
+function pickFile(field: 'logo' | 'favicon') {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/webp,image/svg+xml';
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (f) uploadImage(field, f);
+  };
+  input.click();
+}
+
+async function clearImage(field: 'logo' | 'favicon') {
+  if (field === 'logo') brand.value.logoUrl = '';
+  else brand.value.faviconUrl = '';
+}
 
 // Contact
 const contact = ref({
@@ -87,8 +135,15 @@ const mapPreviewSrc = computed(() => {
 });
 
 async function loadAll() {
-  // Load everything in one shot via public endpoint so we don't hit auth check
   const pub = await api<any>('/settings');
+  brand.value.brandName = pub.brand.name;
+  brand.value.brandTagline = pub.brand.tagline;
+  brand.value.seoTitle = pub.seo.title || '';
+  brand.value.seoDescription = pub.seo.description || '';
+  brand.value.accentColor = pub.accentColor || '#E11D48';
+  brand.value.logoUrl = pub.logoUrl || '';
+  brand.value.faviconUrl = pub.faviconUrl || '';
+
   contact.value.shortAddress = pub.contact.address;
   contact.value.fullAddress = pub.contact.fullAddress || '';
   contact.value.phones = pub.contact.phones?.length ? pub.contact.phones : [''];
@@ -100,12 +155,6 @@ async function loadAll() {
     contact.value.socials = { vk: '', telegram: '', whatsapp: '', instagram: '', ...pub.contact.socials };
   }
 
-  brand.value.brandName = pub.brand.name;
-  brand.value.brandTagline = pub.brand.tagline;
-  brand.value.seoTitle = pub.seo.title || '';
-  brand.value.seoDescription = pub.seo.description || '';
-  brand.value.accentColor = pub.accentColor || '#E11D48';
-
   map_.value.provider = pub.map.provider;
   map_.value.iframeUrl = pub.map.iframeUrl || '';
   map_.value.markerLat = pub.map.markerLat;
@@ -115,14 +164,6 @@ async function loadAll() {
   map_.value.routeStartHint = pub.map.routeStartHint;
 
   Object.assign(visibility.value, pub.pages);
-
-  // Authoritative view — also pull the full row so any custom fields survive
-  try {
-    const all = await api<any>('/admin/site');
-    // DB row "address" is the long form, "shortAddress" is the landmark one
-    if (typeof all.address === 'string') contact.value.fullAddress = all.address;
-    if (typeof all.shortAddress === 'string') contact.value.shortAddress = all.shortAddress;
-  } catch {/* expected to fail on first run before admin login is required */}
 }
 
 function setMsg(s: Section, type: 'ok' | 'error', text: string) {
@@ -215,14 +256,10 @@ function onCoord(ev: Event, which: 'lat' | 'lng') {
   else map_.value.markerLng = Number.isFinite(n) ? n : null;
 }
 
-// Lookup Yandex address → coords client-side via Yandex geocode API
-// (uses publicly available JS API without key by hitting https://geocode-maps.yandex.ru/1.x)
 async function geocodeYandex() {
   const addr = (contact.value.shortAddress || contact.value.fullAddress || '').trim();
   if (!addr) return;
   try {
-    // OpenStreetMap Nominatim — free, no API key. Usage policy requires a User-Agent
-    // header, which browsers send automatically as the page URL.
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&accept-language=ru`;
     const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -243,10 +280,6 @@ async function geocodeYandex() {
   }
 }
 
-watch(() => contact.value.shortAddress, (v) => {
-  // Don't auto-stomp existing coords
-});
-
 onMounted(loadAll);
 </script>
 
@@ -262,13 +295,45 @@ onMounted(loadAll);
       <header class="card__head">
         <div>
           <h2>Бренд</h2>
-          <p>Название салона, описание, цвета</p>
+          <p>Название, логотип, цвета, SEO</p>
         </div>
         <button class="btn btn--primary" :disabled="saving.brand" @click="saveBrand">
           {{ saving.brand ? 'Сохраняем…' : 'Сохранить' }}
         </button>
       </header>
       <div v-if="message.brand" :class="['flash', `flash--${message.brand.type}`]">{{ message.brand.text }}</div>
+
+      <!-- Logo + Favicon uploaders -->
+      <div class="grid grid--two">
+        <div class="image-uploader">
+          <div class="image-uploader__label">Логотип</div>
+          <div class="image-uploader__preview">
+            <img v-if="brand.logoUrl" :src="brand.logoUrl" alt="Логотип" />
+            <span v-else class="image-uploader__placeholder">Логотип не загружен</span>
+          </div>
+          <div class="image-uploader__actions">
+            <button class="btn" :disabled="logoUploading" @click="pickFile('logo')">
+              {{ logoUploading ? 'Загружаем…' : 'Загрузить' }}
+            </button>
+            <button v-if="brand.logoUrl" class="btn btn--ghost" @click="clearImage('logo')">Удалить</button>
+          </div>
+        </div>
+        <div class="image-uploader">
+          <div class="image-uploader__label">Иконка вкладки (favicon)</div>
+          <div class="image-uploader__preview image-uploader__preview--sq">
+            <img v-if="brand.faviconUrl" :src="brand.faviconUrl" alt="Favicon" />
+            <span v-else class="image-uploader__placeholder">—</span>
+          </div>
+          <div class="image-uploader__actions">
+            <button class="btn" :disabled="faviconUploading" @click="pickFile('favicon')">
+              {{ faviconUploading ? 'Загружаем…' : 'Загрузить' }}
+            </button>
+            <button v-if="brand.faviconUrl" class="btn btn--ghost" @click="clearImage('favicon')">Удалить</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="uploadError" class="flash flash--error">{{ uploadError }}</div>
+
       <div class="grid">
         <label class="field">
           <span class="field__label">Название</span>
@@ -540,6 +605,44 @@ onMounted(loadAll);
   gap: 1rem;
   padding: 1.25rem 1.5rem 1.5rem;
 }
+.grid--two {
+  grid-template-columns: 1fr 1fr;
+  padding-bottom: 0.5rem;
+}
+
+.image-uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.image-uploader__label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+.image-uploader__preview {
+  height: 80px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+.image-uploader__preview--sq {
+  width: 80px;
+}
+.image-uploader__preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.image-uploader__placeholder {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+.image-uploader__actions { display: flex; gap: 0.4rem; }
 
 .field { display: flex; flex-direction: column; gap: 0.35rem; }
 .field__label { font-size: 0.8rem; color: var(--color-text-secondary); font-weight: 500; }
@@ -571,6 +674,7 @@ onMounted(loadAll);
   color: white;
 }
 .btn--primary:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
+.btn--ghost { background: transparent; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .link-btn {
@@ -678,6 +782,7 @@ onMounted(loadAll);
 
 @media (max-width: 700px) {
   .grid { grid-template-columns: 1fr; }
+  .grid--two { grid-template-columns: 1fr; }
   .hours-table { grid-template-columns: 50px 1fr 1fr 60px; gap: 0.35rem; font-size: 0.85rem; }
 }
 </style>

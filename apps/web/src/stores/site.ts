@@ -51,6 +51,8 @@ export interface SiteSettings {
   pages: SiteVisibility;
   seo: { title: string; description: string };
   accentColor: string;
+  logoUrl: string | null;
+  faviconUrl: string | null;
   loaded: boolean;
 }
 
@@ -87,6 +89,8 @@ const DEFAULTS: SiteSettings = {
   },
   seo: { title: '', description: '' },
   accentColor: '#E11D48',
+  logoUrl: null,
+  faviconUrl: null,
   loaded: false,
 };
 

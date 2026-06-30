@@ -2,24 +2,35 @@
 /**
  * AdminLayout — top bar + sidebar (desktop) / drawer (mobile).
  * Burger button on mobile opens the drawer from the left.
+ *
+ * Drawer closes when the user navigates (route change) — we watch the
+ * current path. Clicking a sidebar item also closes it immediately.
  */
-import { ref, onMounted, onUnmounted } from 'vue';
-import { RouterView } from 'vue-router';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
 import AdminSidebar from '@/components/admin/AdminSidebar.vue';
 import AdminTopbar from '@/components/admin/AdminTopbar.vue';
 
 const drawerOpen = ref(false);
 const isMobile = ref(false);
+const route = useRoute();
+
+function closeDrawer() { drawerOpen.value = false; }
 
 function updateLayout() {
   isMobile.value = window.innerWidth < 900;
   if (!isMobile.value) drawerOpen.value = false;
 }
+
 onMounted(() => {
   updateLayout();
   window.addEventListener('resize', updateLayout);
 });
 onUnmounted(() => window.removeEventListener('resize', updateLayout));
+
+watch(() => route.fullPath, () => {
+  drawerOpen.value = false;
+});
 </script>
 
 <template>
@@ -39,10 +50,10 @@ onUnmounted(() => window.removeEventListener('resize', updateLayout));
     <!-- Mobile drawer -->
     <Teleport to="body">
       <Transition name="drawer">
-        <div v-if="drawerOpen" class="drawer-backdrop" @click.self="drawerOpen = false">
+        <div v-if="drawerOpen" class="drawer-backdrop" @click.self="closeDrawer">
           <div class="drawer">
-            <button class="drawer-close" @click="drawerOpen = false" aria-label="Закрыть">✕</button>
-            <AdminSidebar @navigate="drawerOpen = false" />
+            <button class="drawer-close" @click="closeDrawer" aria-label="Закрыть">✕</button>
+            <AdminSidebar @navigate="closeDrawer" />
           </div>
         </div>
       </Transition>

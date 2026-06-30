@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
  * AdminSidebar — navigation links.
- * On mobile, this is rendered inside AdminMobileMenu drawer instead of inline.
+ * On mobile, this is rendered inside AdminLayout drawer instead of inline.
+ *
+ * Emits `navigate` so the parent layout can close the drawer after a click.
  */
 import { RouterLink } from 'vue-router';
 
-defineProps<{
-  compact?: boolean;
-}>();
+defineEmits<{ (e: 'navigate'): void }>();
 
 const items = [
   { to: '/admin/services', label: 'Услуги и цены', icon: '✂' },
@@ -21,7 +21,7 @@ const items = [
   <aside class="admin-sidebar">
     <div class="brand">Молодость · admin</div>
     <nav>
-      <RouterLink v-for="i in items" :key="i.to" :to="i.to">
+      <RouterLink v-for="i in items" :key="i.to" :to="i.to" @click="$emit('navigate')">
         <span class="ico">{{ i.icon }}</span>
         <span class="lbl">{{ i.label }}</span>
       </RouterLink>

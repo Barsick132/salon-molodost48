@@ -71,6 +71,9 @@ model SiteSettings {
   fontFamily           String  @default("Inter")
   enableStructuredData Boolean @default(true)
 
+  logoUrl              String  @default("")
+  faviconUrl           String  @default("")
+
   updatedAt DateTime @updatedAt
 }
 

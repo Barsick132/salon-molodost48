@@ -65,6 +65,8 @@ const Brand = z.object({
   seoTitle:     z.string().max(300).optional(),
   seoDescription: z.string().max(1000).optional(),
   accentColor:  z.string().regex(/^#[0-9A-Fa-f]{3,8}$/).optional(),
+  logoUrl:      z.string().max(500).optional(),
+  faviconUrl:   z.string().max(500).optional(),
 });
 
 async function getOrCreate(app: any) {

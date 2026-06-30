@@ -48,6 +48,8 @@ function safe(d: SiteSettings) {
       description: d.seoDescription,
     },
     accentColor: d.accentColor,
+    logoUrl: d.logoUrl || null,
+    faviconUrl: d.faviconUrl || null,
   };
 }
 

@@ -79,8 +79,37 @@ function isCtaStrip(b: BlockBase): b is BlockBase & { payload: CtaStripPayload }
 // Helpers to safely pull items from a block's payload in templates (vue-tsc-friendly)
 const statsItems = (b: BlockBase): StatItem[] => (b.type === 'stats' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
 const advItems = (b: BlockBase): AdvantageItem[] => (b.type === 'advantages' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
-const heroPayload = (b: BlockBase): HeroPayload => (b.type === 'hero' ? (b.payload as unknown as HeroPayload) : { eyebrow: '', title: '', lead: '', primaryCtaLabel: '', primaryCtaHref: '', secondaryCtaLabel: '', secondaryCtaHref: '' });
+const heroPayload = (b: BlockBase): HeroPayload => (b.type === 'hero' ? (b.payload as unknown as HeroPayload) : { eyebrow: '', title: '', lead: '', primaryCtaLabel: '', primaryCtaHref: '', secondaryCtaLabel: '', secondaryCtaHref: '', imageUrl: '' });
 const ctaPayload = (b: BlockBase): CtaStripPayload => (b.type === 'cta-strip' ? (b.payload as unknown as CtaStripPayload) : { eyebrow: '', title: '', lead: '', ctaLabel: '', ctaHref: '' });
+
+interface IconSpec { size?: number; }
+
+// Map semantic icon names → inline SVG path fragments.
+// Admins edit the icon by typing a short keyword: tag / shield / clock / coffee / star / etc.
+function renderAdvantageIcon(key: string, size = 22) {
+  switch (key) {
+    case 'tag':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.18 7.17a2 2 0 0 1-2.82 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`;
+    case 'shield':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
+    case 'clock':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    case 'coffee':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`;
+    case 'star':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14.2 18.2 21 12 17.8 5.8 21 7 14.2 2 9.3 9 8.5 12 2"/></svg>`;
+    case 'scissors':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`;
+    case 'sparkles':
+      return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M5 12H1M23 12h-4M6.34 6.34l2.83 2.83M14.83 14.83l2.83 2.83M6.34 17.66l2.83-2.83M14.83 9.17l2.83-2.83"/></svg>`;
+    default:
+      return ''; // fall back to raw text in template
+  }
+}
+
+function isKnownIcon(key: string): boolean {
+  return ['tag', 'shield', 'clock', 'coffee', 'star', 'scissors', 'sparkles'].includes(key);
+}
 
 // Map CTA href → integration booking url if it's the magic "dikidi" placeholder
 function resolveCta(href: string): string {
@@ -112,7 +141,7 @@ onMounted(async () => {
       <!-- ===== HERO ===== -->
       <section v-if="isHero(b)" class="hero">
         <div class="container">
-          <div class="hero-inner">
+          <div class="hero-inner" :class="{ 'hero-inner--has-image': heroPayload(b).imageUrl }">
             <div v-if="heroPayload(b).eyebrow" class="eyebrow">{{ heroPayload(b).eyebrow }}</div>
             <h1 class="hero-title">{{ heroPayload(b).title }}</h1>
             <p v-if="heroPayload(b).lead" class="hero-lead">
@@ -126,6 +155,10 @@ onMounted(async () => {
                 {{ heroPayload(b).secondaryCtaLabel }} →
               </a>
             </div>
+          </div>
+          <div v-if="heroPayload(b).imageUrl" class="hero-image">
+            <img :src="heroPayload(b).imageUrl" alt="" />
+            <div class="hero-image__glow" aria-hidden="true"></div>
           </div>
           <div class="hero-bg" aria-hidden="true">
             <div class="hero-bg__grid"></div>
@@ -155,7 +188,7 @@ onMounted(async () => {
               :key="i"
               :class="['bento-card', `bento-card--${i}`]"
             >
-              <span class="bento-card__icon">{{ a.icon }}</span>
+              <span class="bento-card__icon" v-html="isKnownIcon(a.icon) ? renderAdvantageIcon(a.icon) : ''" />
               <h3 class="bento-card__title">{{ a.title }}</h3>
               <p class="bento-card__text">{{ a.description }}</p>
             </article>
@@ -252,7 +285,13 @@ onMounted(async () => {
   padding: 5rem 0 4rem;
   overflow: hidden;
 }
-.hero-inner { max-width: 760px; position: relative; z-index: 2; }
+.hero > .container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  position: relative;
+}
+.hero-inner { max-width: 760px; position: relative; z-index: 3; }
 .eyebrow {
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -309,6 +348,42 @@ onMounted(async () => {
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .hero-cta__secondary:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+.hero-image {
+  position: relative;
+  z-index: 2;
+  margin: 0 auto;
+  max-width: 380px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  box-shadow:
+    0 30px 60px -25px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(225, 29, 72, 0.15);
+}
+.hero-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+.hero-image__glow {
+  position: absolute;
+  inset: -20% -10% auto auto;
+  width: 80%; aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(225, 29, 72, 0.25), transparent 70%);
+  filter: blur(60px);
+  z-index: -1;
+}
+@media (min-width: 900px) {
+  .hero > .container {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
+  }
+  .hero-image { margin: 0; max-width: 480px; }
+}
 
 .hero-bg {
   position: absolute;
@@ -402,13 +477,16 @@ onMounted(async () => {
 .bento-card__icon {
   display: inline-grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
   background: rgba(225, 29, 72, 0.12);
   color: var(--color-accent);
-  font-size: 1.2rem;
+  font-size: 1rem;
   position: relative;
+}
+.bento-card__icon :deep(svg) {
+  display: block;
 }
 .bento-card__title {
   font-family: var(--font-display);

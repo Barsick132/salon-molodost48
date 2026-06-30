@@ -26,6 +26,7 @@ export interface HeroPayload {
   primaryCtaHref: string;
   secondaryCtaLabel: string;
   secondaryCtaHref: string;
+  imageUrl: string;
 }
 export interface StatItem { value: string; label: string; }
 export interface AdvantageItem { icon: string; title: string; description: string; }

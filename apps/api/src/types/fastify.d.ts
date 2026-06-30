@@ -67,5 +67,15 @@ declare module 'fastify' {
      * Current session ID — populated by requireAdmin; used for revoke on logout.
      */
     adminSessionId?: string;
+    /**
+     * `@fastify/multipart` adds these to FastifyRequest at runtime; declaring
+     * them here so route handlers can use them without TS errors.
+     */
+    isMultipart(): boolean;
+    file(): Promise<{
+      filename: string;
+      mimetype: string;
+      toBuffer(): Promise<Buffer>;
+    } | undefined>;
   }
 }

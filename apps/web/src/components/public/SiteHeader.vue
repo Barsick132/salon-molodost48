@@ -3,13 +3,16 @@
  * SiteHeader — desktop: brand + inline nav + booking CTA.
  *            mobile: brand + booking CTA + burger; tap burger opens slide-down menu.
  */
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
 import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
 const integrations = useIntegrationsStore();
 const site = useSiteStore();
+const router = useRouter();
+const route = useRoute();
 
 const menuOpen = ref(false);
 const isMobile = ref(false);
@@ -19,12 +22,20 @@ function sync() {
   if (!isMobile.value) menuOpen.value = false;
 }
 
-function go(selector: string) {
+async function navigate(target: string) {
   menuOpen.value = false;
-  // Smooth scroll for hash links; full nav for paths
-  if (selector.startsWith('#')) {
-    const el = document.querySelector(selector);
+  // Same-page hash → smooth scroll; full path → router push.
+  if (target.startsWith('#')) {
+    const el = document.querySelector(target);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (route.path !== target) {
+    try {
+      await router.push(target);
+    } catch {
+      window.location.href = target;
+    }
   }
 }
 
@@ -39,16 +50,22 @@ const navLinks = [
   { to: '/services', show: () => site.settings.pages.servicesInNavEnabled, label: 'Услуги' },
   { to: '/contacts', show: () => true, label: 'Контакты' },
 ];
+
+// Close drawer on route change (defense-in-depth — happens after navigate() too)
+watch(() => route.fullPath, () => { menuOpen.value = false; });
 </script>
 
 <template>
-  <header class="site-header" :class="{ 'site-header--mobile-menu': menuOpen }">
+  <header class="site-header">
     <div class="container">
-      <a href="/" class="logo" @click="menuOpen = false">{{ site.settings.brand.name }}</a>
+      <a href="/" class="brand" @click="navigate('/')">
+        <img v-if="site.settings.logoUrl" :src="site.settings.logoUrl" alt="" class="brand__logo-img" />
+        <span class="brand__text">{{ site.settings.brand.name }}</span>
+      </a>
       <nav v-if="!isMobile" class="nav-desktop">
-        <template v-for="link in navLinks.filter((l) => l.show())" :key="link.to">
-          <a :href="link.to">{{ link.label }}</a>
-        </template>
+        <a v-for="link in navLinks.filter((l) => l.show())" :key="link.to" href="#" @click.prevent="navigate(link.to)">
+          {{ link.label }}
+        </a>
       </nav>
       <div class="spacer" />
       <div v-if="!isMobile" class="cta">
@@ -77,9 +94,9 @@ const navLinks = [
           <a
             v-for="link in navLinks.filter((l) => l.show())"
             :key="link.to"
-            :href="link.to"
+            href="#"
             class="mobile-menu__link"
-            @click.prevent="go(link.to)"
+            @click.prevent="navigate(link.to)"
           >{{ link.label }}</a>
         </nav>
         <div class="mobile-menu__cta">
@@ -105,12 +122,23 @@ const navLinks = [
   gap: 1rem;
   height: 64px;
 }
-.logo {
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+.brand__logo-img {
+  max-height: 32px;
+  max-width: 36px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.brand__text {
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary);
-  text-decoration: none;
 }
 .nav-desktop {
   display: flex;
@@ -160,6 +188,7 @@ const navLinks = [
   text-decoration: none;
   border-radius: var(--radius-sm);
   border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
 }
 .mobile-menu__link:last-child { border-bottom: none; }
 .mobile-menu__link:hover { color: var(--color-accent); }
