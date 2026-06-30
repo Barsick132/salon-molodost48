@@ -71,6 +71,7 @@ export default async function adminAuthRoutes(app: FastifyInstance) {
     await app.auth.issueSession(reply, user, {
       ip: req.ip,
       ua: req.headers['user-agent'] as string | undefined,
+      request: req,
     });
     await app.prisma.adminUser.update({
       where: { id: user.id },

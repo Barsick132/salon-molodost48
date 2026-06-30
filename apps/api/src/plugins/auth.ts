@@ -37,18 +37,26 @@ function buildCookieOpts(opts: { secure: boolean; sameSite?: 'lax' | 'strict' | 
 }
 
 export default fp(async (app) => {
-  const secure = app.config.NODE_ENV === 'production';
-  const cookieOpts = buildCookieOpts({ secure });
+  // Cookie 'Secure' flag is set ONLY when the request scheme is HTTPS.
+  // Using a static NODE_ENV check would break IP-only HTTP previews.
+  const cookieOpts = buildCookieOpts({
+    secure: app.config.NODE_ENV === 'production' && false, // overridden per-request in issueSession
+  });
+  // Default (no request context): secure in prod
+  const defaultSecure = app.config.NODE_ENV === 'production';
 
   app.decorate('auth', {
     /** Issue a session: write row, sign JWT, set cookie. */
-    async issueSession(reply: import('fastify').FastifyReply, user: AdminUser, meta: { ip?: string; ua?: string }) {
+    async issueSession(reply: import('fastify').FastifyReply, user: AdminUser, meta: { ip?: string; ua?: string; request?: import('fastify').FastifyRequest }) {
       const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
       const session = await app.prisma.adminSession.create({
         data: { userId: user.id, expiresAt, ipAddress: meta.ip ?? null, userAgent: meta.ua ?? null },
       });
       const token = await reply.jwtSign({ sid: session.id }, { expiresIn: `${SESSION_TTL_DAYS}d` });
-      reply.setCookie(COOKIE_NAME, token, cookieOpts);
+      // Detect HTTPS via trustProxy headers (X-Forwarded-Proto)
+      const isHttps = meta.request?.protocol === 'https';
+      const opts = isHttps ? cookieOpts : { ...cookieOpts, secure: false };
+      reply.setCookie(COOKIE_NAME, token, opts);
       return session;
     },
 

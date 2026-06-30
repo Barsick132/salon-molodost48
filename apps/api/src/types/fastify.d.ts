@@ -36,7 +36,7 @@ declare module 'fastify' {
       issueSession(
         reply: import('fastify').FastifyReply,
         user: AdminUser,
-        meta: { ip?: string; ua?: string },
+        meta: { ip?: string; ua?: string; request?: import('fastify').FastifyRequest },
       ): Promise<AdminSession>;
       revokeSession(
         req: import('fastify').FastifyRequest,
