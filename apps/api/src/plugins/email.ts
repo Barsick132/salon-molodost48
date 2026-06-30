@@ -52,9 +52,12 @@ export default fp(async (app) => {
       host,
       port,
       secure,
+      // Force IPv4: our VPS has no IPv6 connectivity, so default DNS lookup
+      // that tries AAAA first will fail with ENETUNREACH.
+      family: 4,
       auth: { user, pass },
       tls: { rejectUnauthorized: true },
-    });
+    } as unknown as Parameters<typeof nodemailer.createTransport>[0]);
     app.log.info({ host, port, user, from }, 'SMTP transport initialized');
   } else {
     app.log.warn(
