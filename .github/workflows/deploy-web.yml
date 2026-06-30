@@ -3,19 +3,16 @@ name: deploy-web
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/web/**'
-      - 'packages/shared/**'
-      - '.github/workflows/deploy-web.yml'
-      - 'package.json'
-      - 'pnpm-workspace.yaml'
-      - 'pnpm-lock.yaml'
   workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -25,23 +22,57 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @molodost/web run typecheck
-      - run: pnpm --filter @molodost/web run build
-      - run: tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
+      - name: Sanitize secrets (aggressive whitelist)
+        env:
+          SERVER_HOST_RAW: ${{ secrets.SERVER_HOST }}
+          SERVER_USER_RAW: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY_RAW: ${{ secrets.MOLODOST_DEPLOY_KEY }}
+        run: |
+          set -e
+          # Whitelist approach: IP only digits+dot; user only safe chars
+          SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | LC_ALL=C tr -cd '0-9.')
+          SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
+          # Key: auto-detect base64 vs raw openssh
+          if printf '%s' "$DEPLOY_KEY_RAW" | grep -q '^LS0tLS1CRUdJTi'; then
+            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r\n[:space:]' | base64 -d)
+            echo "DEPLOY_KEY: decoded base64 ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+          else
+            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r')
+            echo "DEPLOY_KEY: raw openssh ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
+          fi
+          {
+            echo "SAN_SERVER_HOST=$SERVER_HOST"
+            echo "SAN_SERVER_USER=$SERVER_USER"
+            echo "SAN_DEPLOY_KEY<<__KEY_EOF__"
+            printf '%s' "$DEPLOY_KEY"
+            echo ""
+            echo "__KEY_EOF__"
+          } >> "$GITHUB_ENV"
+
+      - name: Install + build
+        run: |
+          set -e
+          # Wipe node_modules to avoid pnpm interactive prompt
+          find . -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
+          pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+          pnpm --filter @molodost/web run typecheck
+          pnpm --filter @molodost/web run build
+          tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
+          ls -la /tmp/molodost48-web-dist.tar.gz
 
       - name: Upload + extract + reload nginx
         env:
-          DEPLOY_KEY: ${{ secrets.MOLODOST_DEPLOY_KEY }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
+          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
+          SERVER_USER: ${{ env.SAN_SERVER_USER }}
         run: |
           set -e
           mkdir -p ~/.ssh
-          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          # Note: GitHub Actions trims trailing \n from secrets, so add it back.
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ls -la ~/.ssh/deploy_key
 
           # Upload tarball over SSH stdin
           cat /tmp/molodost48-web-dist.tar.gz | ssh -i ~/.ssh/deploy_key \
