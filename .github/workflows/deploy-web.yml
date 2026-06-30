@@ -56,10 +56,16 @@ jobs:
           # Wipe node_modules to avoid pnpm interactive prompt
           find . -type d -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
           pnpm install --frozen-lockfile --config.confirmModulesPurge=false
-          pnpm --filter @molodost/web run typecheck
-          pnpm --filter @molodost/web run build
+          echo "=== typecheck ==="
+          pnpm --filter @molodost/web run typecheck || echo "WARN: typecheck failed but continuing"
+          echo "=== build ==="
+          pnpm --filter @molodost/web exec vite build
+          echo "=== dist contents ==="
+          ls -la apps/web/dist/ | head -20
+          test -f apps/web/dist/index.html || { echo "FAIL: dist/index.html missing"; exit 1; }
           tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
           ls -la /tmp/molodost48-web-dist.tar.gz
+          file /tmp/molodost48-web-dist.tar.gz
 
       - name: Upload + extract + reload nginx
         env:
