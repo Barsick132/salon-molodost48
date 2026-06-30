@@ -5,7 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Cancel any previous deploy-api run when a new one starts
 concurrency:
   group: deploy-api
   cancel-in-progress: true
@@ -24,32 +23,46 @@ jobs:
         with:
           node-version: 22
 
-      - name: Sanitize secrets (strip newlines/whitespace)
+      - name: Sanitize secrets (aggressive whitelist)
         env:
           SERVER_HOST_RAW: ${{ secrets.SERVER_HOST }}
           SERVER_USER_RAW: ${{ secrets.SERVER_USER }}
           DEPLOY_KEY_RAW: ${{ secrets.MOLODOST_DEPLOY_KEY }}
         run: |
-          # Strip CR/LF and surrounding whitespace that may leak from secret paste
-          SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | tr -d '\r\n' | xargs)
-          SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | tr -d '\r\n' | xargs)
+          set -e
+          # Dump raw bytes for diagnostics (masked by GH if contains secret, but len/hex is OK)
+          echo "=== RAW hex dump (first 80 bytes) ==="
+          printf '%s' "$SERVER_HOST_RAW" | head -c 80 | xxd
+          echo "=== RAW len ==="
+          printf 'SERVER_HOST_RAW len=%d\n' "${#SERVER_HOST_RAW}"
+          printf 'SERVER_USER_RAW len=%d\n' "${#SERVER_USER_RAW}"
+          printf 'DEPLOY_KEY_RAW len=%d\n' "${#DEPLOY_KEY_RAW}"
+
+          # Whitelist approach: IP only digits+dot; user only safe chars
+          SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | LC_ALL=C tr -cd '0-9.')
+          SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
+          # Key: strip CR, keep LFs (it's base64-ish text, but ensure single trailing \n)
           DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r')
-          # Ensure key ends with single newline (SSH requires it)
-          DEPLOY_KEY="${DEPLOY_KEY%$'\n'}"
-          DEPLOY_KEY="${DEPLOY_KEY}"$'\n'
-          echo "SERVER_HOST=[$SERVER_HOST] len=${#SERVER_HOST}"
-          echo "SERVER_USER=[$SERVER_USER] len=${#SERVER_USER}"
-          echo "DEPLOY_KEY starts: ${DEPLOY_KEY:0:30}"
-          echo "DEPLOY_KEY ends: ...${DEPLOY_KEY: -30}"
-          echo "DEPLOY_KEY has BEGIN: $(echo "$DEPLOY_KEY" | grep -c 'BEGIN OPENSSH PRIVATE KEY')"
-          echo "DEPLOY_KEY has END: $(echo "$DEPLOY_KEY" | grep -c 'END OPENSSH PRIVATE KEY')"
+
+          echo "=== CLEAN len ==="
+          printf 'SERVER_HOST clean len=%d\n' "${#SERVER_HOST}"
+          printf 'SERVER_USER clean len=%d\n' "${#SERVER_USER}"
+          printf 'DEPLOY_KEY clean len=%d\n' "${#DEPLOY_KEY}"
+          echo "=== CLEAN hex (first 32 bytes of HOST) ==="
+          printf '%s' "$SERVER_HOST" | head -c 32 | xxd
+          echo "=== CLEAN hex (first 32 bytes of USER) ==="
+          printf '%s' "$SERVER_USER" | head -c 32 | xxd
+
+          # Export to GITHUB_ENV for downstream steps (use EOF marker to avoid shell expansion issues)
           {
-            echo "SERVER_HOST=$SERVER_HOST"
-            echo "SERVER_USER=$SERVER_USER"
-            echo "DEPLOY_KEY<<EOF"
+            echo "SAN_SERVER_HOST=$SERVER_HOST"
+            echo "SAN_SERVER_USER=$SERVER_USER"
+            # Use unique heredoc-style marker
+            echo "SAN_DEPLOY_KEY<<__KEY_EOF__"
             printf '%s' "$DEPLOY_KEY"
-            echo "EOF"
-          } >> $GITHUB_ENV
+            echo ""
+            echo "__KEY_EOF__"
+          } >> "$GITHUB_ENV"
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @molodost/api run db:generate
@@ -57,19 +70,20 @@ jobs:
 
       - name: SSH sanity test
         env:
-          SERVER_HOST: ${{ env.SERVER_HOST }}
-          SERVER_USER: ${{ env.SERVER_USER }}
+          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
+          SERVER_USER: ${{ env.SAN_SERVER_USER }}
         run: |
           set -e
-          echo "host=[$SERVER_HOST] user=[$SERVER_USER]"
+          echo "host=[$SERVER_HOST] user=[$SERVER_USER] len_host=${#SERVER_HOST} len_user=${#SERVER_USER}"
           ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
-              -o BatchMode=yes "$SERVER_USER@$SERVER_HOST" echo SSH_OK
+              -o BatchMode=yes -o PasswordAuthentication=no \
+              "$SERVER_USER@$SERVER_HOST" echo SSH_OK
 
       - name: Deploy on server
         env:
-          DEPLOY_KEY: ${{ env.DEPLOY_KEY }}
-          SERVER_HOST: ${{ env.SERVER_HOST }}
-          SERVER_USER: ${{ env.SERVER_USER }}
+          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
+          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
+          SERVER_USER: ${{ env.SAN_SERVER_USER }}
         run: |
           set -e
           mkdir -p ~/.ssh
@@ -152,9 +166,9 @@ jobs:
 
       - name: Smoke test
         env:
-          DEPLOY_KEY: ${{ env.DEPLOY_KEY }}
-          SERVER_HOST: ${{ env.SERVER_HOST }}
-          SERVER_USER: ${{ env.SERVER_USER }}
+          DEPLOY_KEY: ${{ env.SAN_DEPLOY_KEY }}
+          SERVER_HOST: ${{ env.SAN_SERVER_HOST }}
+          SERVER_USER: ${{ env.SAN_SERVER_USER }}
         run: |
           set -e
           mkdir -p ~/.ssh
