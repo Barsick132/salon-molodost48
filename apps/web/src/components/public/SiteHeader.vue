@@ -17,7 +17,7 @@ onMounted(() => integrations.load());
         <a href="/contacts">Контакты</a>
       </nav>
       <div class="cta">
-        <DikidiBookingButton variant="primary" size="sm" />
+        <a href="https://dikidi.ru/#widget=212727" class="header-dikidi-btn">Записаться</a>
       </div>
     </div>
   </header>
@@ -58,6 +58,21 @@ nav a {
 }
 nav a:hover { color: var(--color-accent); }
 .cta { display: flex; gap: var(--space-3); }
+.header-dikidi-btn {
+  display: inline-flex;
+  align-items: center;
+  background: var(--color-accent);
+  color: white;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+.header-dikidi-btn:hover {
+  background: var(--color-accent-hover);
+  color: white;
+}
 
 @media (max-width: 768px) {
   nav { display: none; }

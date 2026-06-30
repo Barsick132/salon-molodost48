@@ -6,7 +6,6 @@
  */
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
-import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
 const integrations = useIntegrationsStore();
 
@@ -65,7 +64,8 @@ const services = [
   { name: 'Парикмахерский зал', count: '12 услуг', from: 'от 800 ₽' },
   { name: 'Ногтевой сервис', count: '8 услуг', from: 'от 600 ₽' },
   { name: 'Брови и ресницы', count: '6 услуг', from: 'от 500 ₽' },
-  { name: 'Косметология', count: '10 услуг', from: 'от 1 500 ₽' },
+  { name: 'Макияж', count: '4 услуги', from: 'от 1 200 ₽' },
+  { name: 'SPA и уход', count: '6 услуг', from: 'от 1 500 ₽' },
 ];
 
 const stats = [
@@ -105,7 +105,16 @@ const stats = [
         </p>
 
         <div class="hero-cta" :ref="registerReveal">
-          <DikidiBookingButton variant="primary" size="lg" label="Записаться онлайн" />
+          <a
+            href="https://dikidi.ru/#widget=212727"
+            class="hero-dikidi-btn"
+            target="_self"
+          >
+            Записаться онлайн
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
           <a href="/services" class="hero-link">
             Смотреть услуги
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -204,7 +213,16 @@ const stats = [
           <p>Выберите мастера и время в один клик — без звонков и ожидания.</p>
         </div>
         <div :ref="registerReveal">
-          <DikidiBookingButton variant="primary" size="lg" label="Записаться в Dikidi" />
+          <a
+            href="https://dikidi.ru/#widget=212727"
+            class="hero-dikidi-btn"
+            target="_self"
+          >
+            Записаться в Dikidi
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
         </div>
       </div>
     </section>
@@ -339,6 +357,28 @@ const stats = [
   border-color: var(--color-accent);
   gap: 0.75rem;
 }
+.hero-dikidi-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  background: var(--color-accent);
+  color: white;
+  padding: 1rem 1.75rem;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 1.05rem;
+  box-shadow: 0 6px 20px var(--color-accent-glow), 0 1px 2px rgba(0,0,0,0.3);
+  transition: all var(--duration-base) var(--ease-out);
+}
+.hero-dikidi-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px var(--color-accent-glow), 0 2px 4px rgba(0,0,0,0.4);
+  color: white;
+  gap: 0.875rem;
+}
+.hero-dikidi-btn svg { transition: transform var(--duration-base) var(--ease-out); }
+.hero-dikidi-btn:hover svg { transform: translateX(3px); }
 
 .hero-stats {
   display: grid;
