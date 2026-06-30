@@ -14,10 +14,18 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 const LoginBody = z.object({
   email: z.string().email().max(254),
   password: z.string().min(1).max(256),
+});
+
+const UserResponse = z.object({
+  id: z.string(),
+  email: z.string(),
+  displayName: z.string(),
+  role: z.string(),
 });
 
 const UpdateProfileBody = z.object({
@@ -30,13 +38,19 @@ const ChangePasswordBody = z.object({
   newPassword: z.string().min(8).max(256),
 });
 
+const OkResponse = z.object({ ok: z.boolean() });
+
+function js(s: z.ZodType): unknown {
+  return zodToJsonSchema(s, { target: 'jsonSchema7' });
+}
+
 export default async function adminAuthRoutes(app: FastifyInstance) {
   // POST /api/admin/auth/login
   app.post('/auth/login', {
     config: { rateLimit: { max: 8, timeWindow: '1 minute' } },
     schema: {
-      body: LoginBody,
-      response: { 200: z.object({ user: z.object({ id: z.string(), email: z.string(), displayName: z.string(), role: z.string() }) }) },
+      body: js(LoginBody),
+      response: { 200: js(z.object({ user: UserResponse })) },
     },
   }, async (req, reply) => {
     const { email, password } = req.body as z.infer<typeof LoginBody>;
@@ -74,27 +88,32 @@ export default async function adminAuthRoutes(app: FastifyInstance) {
   });
 
   // POST /api/admin/auth/logout
-  app.post('/auth/logout', { preHandler: [app.auth.requireAdmin] }, async (req, reply) => {
+  app.post('/auth/logout', {
+    preHandler: [app.auth.requireAdmin],
+    schema: { response: { 200: js(OkResponse) } },
+  }, async (req, reply) => {
     await app.auth.revokeSession(req, reply);
     return { ok: true };
   });
 
   // GET /api/admin/auth/me
-  app.get('/auth/me', { preHandler: [app.auth.requireAdmin] }, async (req) => {
+  app.get('/auth/me', {
+    preHandler: [app.auth.requireAdmin],
+    schema: { response: { 200: js(z.object({ user: UserResponse })) } },
+  }, async (req) => {
     return { user: req.adminUser };
   });
 
   // PATCH /api/admin/auth/me — update displayName / email
   app.patch('/auth/me', {
     preHandler: [app.auth.requireAdmin],
-    schema: { body: UpdateProfileBody },
+    schema: { body: js(UpdateProfileBody) },
   }, async (req, reply) => {
     const body = req.body as z.infer<typeof UpdateProfileBody>;
     if (!body.displayName && !body.email) {
       reply.code(400).send({ error: { code: 'no_changes', message: 'Nothing to update' } });
       return;
     }
-    // If email change, ensure not taken
     if (body.email) {
       const existing = await app.prisma.adminUser.findFirst({
         where: { email: body.email.toLowerCase(), NOT: { id: req.adminUser!.id } },
@@ -121,7 +140,7 @@ export default async function adminAuthRoutes(app: FastifyInstance) {
   // POST /api/admin/auth/change-password
   app.post('/auth/change-password', {
     preHandler: [app.auth.requireAdmin],
-    schema: { body: ChangePasswordBody },
+    schema: { body: js(ChangePasswordBody) },
   }, async (req, reply) => {
     const body = req.body as z.infer<typeof ChangePasswordBody>;
     const user = await app.prisma.adminUser.findUnique({ where: { id: req.adminUser!.id } });
