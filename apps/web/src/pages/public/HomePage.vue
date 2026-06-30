@@ -714,28 +714,15 @@ const stats = [
   color: var(--color-text-secondary);
 }
 
-/* ===== REVEAL ANIMATIONS ===== */
-[class*='section-head'],
-.hero-stats,
-.hero-cta,
-.hero-lead,
-.hero-title,
-.eyebrow,
-.bento-card,
-.service-grid,
-.services-cta,
-.cta-strip__text,
-.cta-strip__inner > div:last-child {
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+/* ===== REVEAL ANIMATIONS removed =====
+   The initial opacity:0 + transform caused invisible content when
+   IntersectionObserver didn't fire reliably. Hero fades in via .hero-inner
+   keyframe below. All other sections render visible by default. */
+.hero-inner {
+  animation: heroIn 0.7s var(--ease-out);
 }
-.is-visible {
-  opacity: 1;
-  transform: translateY(0);
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.bento-card.is-visible { transition-delay: 0.05s; }
-.bento-card:nth-child(2).is-visible { transition-delay: 0.1s; }
-.bento-card:nth-child(3).is-visible { transition-delay: 0.15s; }
-.bento-card:nth-child(4).is-visible { transition-delay: 0.2s; }
 </style>
