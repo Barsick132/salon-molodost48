@@ -305,6 +305,8 @@ model AdminUser {
   updatedAt    DateTime  @updatedAt
   lastLoginAt  DateTime?
   sessions     AdminSession[]
+  passwordResetTokens PasswordResetToken[]
+  emailChangeRequests  EmailChangeRequest[]
 }
 
 model AdminSession {
@@ -320,9 +322,32 @@ model AdminSession {
   @@index([expiresAt])
 }
 
-// ============================================================
-// Audit log
-// ============================================================
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique          // sha256 hex of the random token sent by email
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailChangeRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail  String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
 
 // ============================================================
 // Integrations (Dikidi, maps, messengers, etc.)

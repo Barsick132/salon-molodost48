@@ -16,9 +16,11 @@ import { config } from './config.js';
 import { prismaPlugin } from './plugins/prisma.js';
 import integrationsPlugin from './plugins/integrations.js';
 import authPlugin from './plugins/auth.js';
+import emailPlugin from './plugins/email.js';
 import publicIntegrationsRoutes from './routes/integrations.public.js';
 import adminIntegrationsRoutes from './routes/integrations.admin.js';
 import adminAuthRoutes from './routes/admin.auth.js';
+import adminPasswordResetRoutes from './routes/admin.auth.password-reset.js';
 
 async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -64,11 +66,13 @@ async function buildApp(): Promise<FastifyInstance> {
   // Plugins
   await app.register(prismaPlugin);
   await app.register(integrationsPlugin);
+  await app.register(emailPlugin);
   await app.register(authPlugin);
 
   // Routes
   await app.register(publicIntegrationsRoutes, { prefix: '/api' });
   await app.register(adminAuthRoutes, { prefix: '/api/admin' });
+  await app.register(adminPasswordResetRoutes, { prefix: '/api/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/admin' });
 
   // Health endpoint
