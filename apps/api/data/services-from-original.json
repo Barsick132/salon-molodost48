@@ -1,0 +1,102 @@
+{
+  "categories": [
+    {
+      "slug": "parikmakherskiy-zal-zhenskie",
+      "name": "Женские парикмахерские услуги",
+      "icon": "✂️",
+      "order": 0,
+      "services": [
+        { "name": "Стрижка", "duration_min": 60, "price_from": 2000, "price_to": 2000 },
+        { "name": "Стрижка детская (до 7 лет)", "duration_min": 60, "price_from": 900, "price_to": 900 },
+        { "name": "Стрижка челки", "duration_min": 30, "price_from": 300, "price_to": 300 },
+        { "name": "Выбривание рисунка", "duration_min": 30, "price_from": 400, "price_to": 400 },
+        { "name": "Укладка феном без укладочных средств", "duration_min": 30, "price_from": 700, "price_to": 700 },
+        { "name": "Укладка феном", "duration_min": 60, "price_from": 1100, "price_to": 1100 },
+        { "name": "Укладка коктейльная", "duration_min": 60, "price_from": 1800, "price_to": 1800 },
+        { "name": "Выпрямление волос утюжком", "duration_min": 60, "price_from": 1800, "price_to": 1800 },
+        { "name": "Окрашивание Балаяж/Шатуш/Брондирование/AirTouch", "duration_min": 300, "price_from": 7500, "price_to": 8000 },
+        { "name": "Мелирование (короткие волосы/корни)", "duration_min": 150, "price_from": 3500, "price_to": 4000 },
+        { "name": "Мелирование (волосы средней длины)", "duration_min": 180, "price_from": 4000, "price_to": 4500 },
+        { "name": "Мелирование (длинные волосы)", "duration_min": 180, "price_from": 4500, "price_to": 5000 },
+        { "name": "Мелирование + тонирование (короткие волосы)", "duration_min": 180, "price_from": 4500, "price_to": 5300 },
+        { "name": "Мелирование + тонирование (волосы средней длины)", "duration_min": 240, "price_from": 5500, "price_to": 6500 },
+        { "name": "Мелирование + тонирование (длинные волосы)", "duration_min": 300, "price_from": 6500, "price_to": 7500 },
+        { "name": "Обесцвечивание (короткие волосы/корни)", "duration_min": 120, "price_from": 2700, "price_to": 3000 },
+        { "name": "Обесцвечивание (волосы средней длины)", "duration_min": 150, "price_from": 3000, "price_to": 3500 },
+        { "name": "Обесцвечивание (длинные волосы)", "duration_min": 150, "price_from": 3500, "price_to": 4000 },
+        { "name": "Обесцвечивание + тонирование (короткие волосы)", "duration_min": 180, "price_from": 4850, "price_to": 5000 },
+        { "name": "Обесцвечивание + тонирование (волосы средней длины)", "duration_min": 240, "price_from": 5000, "price_to": 6500 },
+        { "name": "Обесцвечивание + тонирование (длинные волосы)", "duration_min": 240, "price_from": 6500, "price_to": 8000 },
+        { "name": "Химическая завивка (короткие волосы)", "duration_min": 120, "price_from": 4600, "price_to": 4600 },
+        { "name": "Химическая завивка (волосы средней длины)", "duration_min": 120, "price_from": 5000, "price_to": 5000 },
+        { "name": "Химическая завивка (длинные волосы)", "duration_min": 180, "price_from": 5600, "price_to": 5600 },
+        { "name": "Ритуал Kerastase", "duration_min": 90, "price_from": 2600, "price_to": 3000 },
+        { "name": "Прическа вечерняя/свадебная", "duration_min": 120, "price_from": 3600, "price_to": 4500 },
+        { "name": "Окрашивание в один тон (короткие волосы)", "duration_min": 120, "price_from": 3500, "price_to": 3700 },
+        { "name": "Окрашивание в один тон (волосы средней длины)", "duration_min": 180, "price_from": 3700, "price_to": 4500 },
+        { "name": "Окрашивание в один тон (длинные волосы)", "duration_min": 180, "price_from": 4500, "price_to": 5100 },
+        { "name": "Смена цвета", "duration_min": 300, "price_from": 8000, "price_to": 8000 }
+      ]
+    },
+    {
+      "slug": "parikmakherskiy-zal-muzhskie",
+      "name": "Мужские парикмахерские услуги",
+      "icon": "✂️",
+      "order": 1,
+      "services": [
+        { "name": "Стрижка MAN", "duration_min": 60, "price_from": 1300, "price_to": 1300 },
+        { "name": "Стрижка под насадку", "duration_min": 60, "price_from": 700, "price_to": 700 },
+        { "name": "Стрижка детская (до 7 лет)", "duration_min": 60, "price_from": 900, "price_to": 900 },
+        { "name": "Укладка", "duration_min": 15, "price_from": 250, "price_to": 250 },
+        { "name": "Стрижка усов/бороды", "duration_min": 30, "price_from": 500, "price_to": 500 },
+        { "name": "Выбривание рисунка", "duration_min": 30, "price_from": 400, "price_to": 400 },
+        { "name": "Камуфляж седины", "duration_min": 30, "price_from": 1100, "price_to": 1100 }
+      ]
+    },
+    {
+      "slug": "nogtevoy-servis",
+      "name": "Ногтевой сервис",
+      "icon": "💅",
+      "order": 2,
+      "services": [
+        { "name": "Маникюр без покрытия", "duration_min": 60, "price_from": 1000, "price_to": 1000 },
+        { "name": "Покрытие лаком", "duration_min": 30, "price_from": 300, "price_to": 300 },
+        { "name": "Маникюр с покрытием гель-лак", "duration_min": 120, "price_from": 1700, "price_to": 1700 },
+        { "name": "Покрытие гель-лак с дизайном + комбинированный маникюр", "duration_min": 120, "price_from": 1800, "price_to": 1800 },
+        { "name": "Снятие покрытия", "duration_min": 30, "price_from": 600, "price_to": 600 },
+        { "name": "Укрепление гелем", "duration_min": 150, "price_from": 2500, "price_to": 2500 },
+        { "name": "Ремонт 1-го ногтя", "duration_min": 30, "price_from": 250, "price_to": 250 },
+        { "name": "Наращивание ногтей", "duration_min": 150, "price_from": 2500, "price_to": 2600 },
+        { "name": "Коррекция ногтей", "duration_min": 180, "price_from": 2200, "price_to": 2500 },
+        { "name": "Педикюр классический/аппаратный", "duration_min": 90, "price_from": 1600, "price_to": 2000 },
+        { "name": "Педикюр с покрытием", "duration_min": 120, "price_from": 2400, "price_to": 2400 },
+        { "name": "Мужской педикюр", "duration_min": 90, "price_from": 1800, "price_to": 1800 }
+      ]
+    },
+    {
+      "slug": "dizayn-vzglyada",
+      "name": "Дизайн взгляда",
+      "icon": "👁️",
+      "order": 3,
+      "services": [
+        { "name": "Архитектура бровей", "duration_min": 15, "price_from": 500, "price_to": 500 },
+        { "name": "Архитектура бровей и окрашивание краской Refectoсil", "duration_min": 30, "price_from": 900, "price_to": 900 },
+        { "name": "Архитектура бровей и биотатуаж хной brow henna", "duration_min": 60, "price_from": 1200, "price_to": 1200 },
+        { "name": "Архитектура и коррекция воском волосков", "duration_min": 20, "price_from": 700, "price_to": 700 },
+        { "name": "Долговременная укладка бровей Velvet", "duration_min": 60, "price_from": 2000, "price_to": 2000 },
+        { "name": "Татуаж бровей (коррекция 50% от стоимости)", "duration_min": 180, "price_from": 7000, "price_to": 8000 },
+        { "name": "Татуаж стрелка - межресничка (коррекция 50% от стоимости)", "duration_min": 150, "price_from": 3500, "price_to": 3500 },
+        { "name": "Окрашивание ресниц краской", "duration_min": 20, "price_from": 700, "price_to": 700 },
+        { "name": "Ламинирование ресниц Velvet", "duration_min": 75, "price_from": 2000, "price_to": 2000 },
+        { "name": "Ламинирование бровей", "duration_min": 60, "price_from": 2000, "price_to": 2000 },
+        { "name": "Ламинирование ресниц и ботокс", "duration_min": 60, "price_from": 2000, "price_to": 2000 },
+        { "name": "Наращивание ресниц (классика)", "duration_min": 120, "price_from": 2500, "price_to": 2500 },
+        { "name": "Velvet ресниц", "duration_min": 90, "price_from": 2000, "price_to": 2000 },
+        { "name": "Velvet бровей", "duration_min": 60, "price_from": 2000, "price_to": 2000 },
+        { "name": "Velvet ресниц и бровей", "duration_min": 135, "price_from": 3500, "price_to": 3500 },
+        { "name": "Снятие ресниц", "duration_min": 30, "price_from": 500, "price_to": 500 },
+        { "name": "Коррекция наращенных ресниц", "duration_min": 120, "price_from": 1800, "price_to": 1800 }
+      ]
+    }
+  ]
+}
