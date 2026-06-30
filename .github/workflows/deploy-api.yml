@@ -41,15 +41,16 @@ jobs:
           # Whitelist approach: IP only digits+dot; user only safe chars
           SERVER_HOST=$(printf '%s' "$SERVER_HOST_RAW" | LC_ALL=C tr -cd '0-9.')
           SERVER_USER=$(printf '%s' "$SERVER_USER_RAW" | LC_ALL=C tr -cd 'a-zA-Z0-9_-')
-          # Key: may be base64 OR raw openssh format. Strip whitespace and try base64-decode first.
-          DEPLOY_KEY_RAW_CLEAN=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r\n[:space:]')
-          # If cleaned value starts with base64-of-"-----BEGIN" (LS0tLS1CRUdJTi = exactly that prefix), decode it.
-          if printf '%s' "$DEPLOY_KEY_RAW_CLEAN" | grep -q '^LS0tLS1CRUdJTi'; then
-            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW_CLEAN" | base64 -d)
-            echo "DEPLOY_KEY: detected base64, decoded"
+          # Key: auto-detect base64 (starts with LS0tLS1CRUdJTi which is base64 of '-----BEGIN')
+          # or raw openssh format (starts with -----BEGIN). Don't strip \n from raw openssh!
+          if printf '%s' "$DEPLOY_KEY_RAW" | grep -q '^LS0tLS1CRUdJTi'; then
+            # Base64: strip whitespace, then decode
+            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r\n[:space:]' | base64 -d)
+            echo "DEPLOY_KEY: detected base64, decoded ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
           else
-            DEPLOY_KEY="$DEPLOY_KEY_RAW_CLEAN"
-            echo "DEPLOY_KEY: using raw value"
+            # Raw openssh: only strip \r (Windows line endings), preserve \n
+            DEPLOY_KEY=$(printf '%s' "$DEPLOY_KEY_RAW" | tr -d '\r')
+            echo "DEPLOY_KEY: using raw openssh ($(printf '%s' "$DEPLOY_KEY" | wc -c) bytes)"
           fi
 
           echo "=== CLEAN len ==="
