@@ -170,11 +170,11 @@ export function useHeroOverlay(
   }
 
   // ----- compose scrim + text colour from sample -----
+  // Two layers, full-bleed, same colour throughout so the eye reads
+  // one continuous tint — exactly the pattern Яндекс.Дзен uses on
+  // its 'нарратив' cards. Bottom-up gradient carries the headline +
+  // CTAs, top shade protects the eyebrow + nav.
   const apply = (s: Sample) => {
-    // CRITICAL: dominant comes from the TEXT REGION of the actual
-    // rendered layout, not the whole image. So a long headline that
-    // stretches into a darker corner still gets a scrim tinted by
-    // the colours actually behind the words.
     const dom = s.textRegionDominant
     const isNeutralish = Math.max(dom.r, dom.g, dom.b) - Math.min(dom.r, dom.g, dom.b) < 18
     const baseR = isNeutralish ? 14 : dom.r
@@ -184,53 +184,45 @@ export function useHeroOverlay(
     const tone: 'dark' | 'light' = s.avgL < 0.55 ? 'dark' : 'light'
     textTone.value = tone
 
-    // Overlay colour: deep mix with near-black for dark scrim, or
-    // creamy mix with cream-white for light scrim.
-    let overlayR: number, overlayG: number, overlayB: number
+    // Pick the scrim colour:
+    //   dark tone (photo mostly dark)  -> deep mix of dominant with
+    //     near-black, so the scrim is recognisably tinted by the
+    //     photo (warm umber, cool teal, etc) rather than flat black.
+    //   light tone (photo mostly light) -> creamy mix with cream-white,
+    //     so the scrim is milky / pastel in the photo's hue.
+    let scrimR: number, scrimG: number, scrimB: number
     if (tone === 'dark') {
-      overlayR = Math.round(baseR * 0.45)
-      overlayG = Math.round(baseG * 0.45)
-      overlayB = Math.round(baseB * 0.45)
+      scrimR = Math.round(baseR * 0.35)
+      scrimG = Math.round(baseG * 0.35)
+      scrimB = Math.round(baseB * 0.35)
     } else {
-      overlayR = Math.round(baseR * 0.3 + 247 * 0.7)
-      overlayG = Math.round(baseG * 0.3 + 245 * 0.7)
-      overlayB = Math.round(baseB * 0.3 + 241 * 0.7)
+      scrimR = Math.round(baseR * 0.25 + 247 * 0.75)
+      scrimG = Math.round(baseG * 0.25 + 245 * 0.75)
+      scrimB = Math.round(baseB * 0.25 + 241 * 0.75)
     }
 
-    // Opacity base on busyness.
-    const busyness = s.stdL
-    let baseOpacity = tone === 'dark'
-      ? clamp(0.55 + busyness * 0.9, 0.5, 0.9)
-      : clamp(0.65 + busyness * 0.6, 0.6, 0.9)
-    const edgeOpacity = clamp(0.35 + busyness * 0.6, 0.3, 0.7)
-    const topShade = clamp(0.2 + busyness * 0.6, 0.18, 0.55)
-    const bottomShade = clamp(baseOpacity * 0.85 + 0.05, 0.45, 0.8)
-
-    // WCAG guard. The minimum opacity to make the headline readable
-    // is higher on bright photos (where there's less room for a
-    // translucent overlay to hide behind).
-    const minReadable = tone === 'dark'
-      ? 0.5 + s.avgL * 0.25   // dark scrim: 0.5..0.625
-      : 0.65 + s.avgL * 0.2   // light scrim: 0.65..0.81
-    baseOpacity = Math.max(baseOpacity, minReadable)
-
-    // FULL-BLEED overlay covering the entire hero. Four layers, all
-    // using the same overlay colour so the eye reads one continuous
-    // tint. The radial centre is wide enough that the headline always
-    // sits inside the densest part, regardless of textAlign or length.
+    // Two layers, simple and full-bleed.
+    //   1. Bottom-up linear gradient: 0% transparent at the top,
+    //      ${bottom} opacity at the bottom. Covers the whole hero.
+    //   2. Top shade: small ${top} opacity at the very top, fades
+    //      to transparent by 30%. Just enough to anchor the nav +
+    //      eyebrow line.
+    const bottom = tone === 'dark' ? 0.6 : 0.55
+    const top = tone === 'dark' ? 0.35 : 0.25
     style.value = [
-      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 35%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${bottomShade.toFixed(2)}) 100%)`,
-      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${topShade.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 30%)`,
-      `radial-gradient(ellipse 90% 70% at 50% 55%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${baseOpacity.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 78%)`,
-      `radial-gradient(ellipse 120% 120% at 50% 50%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 55%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${edgeOpacity.toFixed(2)}) 100%)`,
+      `linear-gradient(0deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${bottom.toFixed(2)}) 100%)`,
+      `linear-gradient(180deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${top.toFixed(2)}) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 30%)`,
     ].join(', ')
 
+    // Text colour: opposite tone, gently tinted with the dominant so
+    // the headline feels native to the photo (warm cream on warm
+    // photos, cool cream on cool photos, etc) — not flat #fff.
     if (tone === 'dark') {
-      textColor.value = mixTint('#ffffff', baseR, baseG, baseB, 0.08)
-      mutedTextColor.value = `rgba(${tintRgba('#ffffff', baseR, baseG, baseB, 0.08)}, 0.82)`
+      textColor.value = mixTint('#ffffff', baseR, baseG, baseB, 0.1)
+      mutedTextColor.value = `rgba(${tintRgba('#ffffff', baseR, baseG, baseB, 0.1)}, 0.85)`
     } else {
-      textColor.value = mixTint('#0a0a0a', baseR, baseG, baseB, 0.06)
-      mutedTextColor.value = `rgba(${tintRgba('#0a0a0a', baseR, baseG, baseB, 0.06)}, 0.82)`
+      textColor.value = mixTint('#0a0a0a', baseR, baseG, baseB, 0.08)
+      mutedTextColor.value = `rgba(${tintRgba('#0a0a0a', baseR, baseG, baseB, 0.08)}, 0.85)`
     }
   }
 
@@ -343,11 +335,12 @@ export function useHeroOverlay(
 // ---- helpers ----------------------------------------------------------
 
 function defaultStyle(): string {
+  // Same simple 2-layer pattern as the sampled style, so the user
+  // doesn't see a 'before / after' jump when the photo finishes
+  // loading.
   return [
-    'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.7) 100%)',
-    'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 30%)',
-    'radial-gradient(ellipse 90% 70% at 50% 55%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 78%)',
-    'radial-gradient(ellipse 120% 120% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)',
+    'linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%)',
+    'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 30%)',
   ].join(', ')
 }
 
