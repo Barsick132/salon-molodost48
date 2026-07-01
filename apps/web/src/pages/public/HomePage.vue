@@ -404,8 +404,8 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     /* 0deg = bottom-to-top: dense black at the bottom, transparent
        at the top. The composable will replace this inline with the
        photo's colour-tinted version once it samples the image. */
-    linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%);
+    linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 30%);
   z-index: 1;
   pointer-events: none;
   transition: background-image 0.4s ease;
@@ -464,9 +464,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
      when the photo's red tones (lipstick, dress, warm light) sit
      behind it. The drop-shadow trick is the cheapest way to add a
      stroke to a background-clip:text element. */
-  filter:
-    drop-shadow(0 0 1px rgba(0, 0, 0, 0.45))
-    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 .hero__title-after { display: inline; }
 

@@ -92,8 +92,12 @@ export function useHeroOverlay(
   let currentUrl = ''
   let token = 0
   let debounceId: ReturnType<typeof setTimeout> | null = null
-  let heroResizeObs: ResizeObserver | null = null
-  let textResizeObs: ResizeObserver | null = null
+  // Single shared ResizeObserver for both hero + text elements.
+  // Two separate observers could trip MaxListenersExceededWarning
+  // when combined with other libs that listen on the same emitter,
+  // and a single observer keeps the observe() calls unified.
+  let resizeObs: ResizeObserver | null = null
+  const observedTargets = new WeakSet<Element>()
 
   // ----- region measurement -----
   const getTextRegion = (): TextRegion | null => {
@@ -234,21 +238,9 @@ export function useHeroOverlay(
   }
 
   // ----- observers -----
-  const setupObservers = () => {
-    if (typeof ResizeObserver === 'undefined') return
-    heroResizeObs = new ResizeObserver(() => scheduleAnalyze())
-    heroResizeObs.observe(document.documentElement)
-    if (refs?.text?.value) {
-      textResizeObs = new ResizeObserver(() => scheduleAnalyze())
-      textResizeObs.observe(refs.text.value)
-    }
-  }
-
   const teardownObservers = () => {
-    heroResizeObs?.disconnect()
-    heroResizeObs = null
-    textResizeObs?.disconnect()
-    textResizeObs = null
+    resizeObs?.disconnect()
+    resizeObs = null
     if (debounceId !== null) {
       clearTimeout(debounceId)
       debounceId = null
@@ -262,23 +254,30 @@ export function useHeroOverlay(
   // element exists — we kept missing it and ending up with the
   // centre-20..80% fallback. watchEffect self-tracks and re-runs
   // until the ref actually has a DOM node.
+  const isElement = (n: unknown): n is Element =>
+    typeof Element !== 'undefined' && n instanceof Element
+
   watchEffect(() => {
     const hero = refs?.hero?.value
     const text = refs?.text?.value
 
-    if (heroResizeObs) heroResizeObs.disconnect()
-    if (textResizeObs) textResizeObs.disconnect()
-    heroResizeObs = null
-    textResizeObs = null
-
+    // Lazily create the single shared observer.
     if (typeof ResizeObserver === 'undefined') return
-    if (hero) {
-      heroResizeObs = new ResizeObserver(() => scheduleAnalyze())
-      heroResizeObs.observe(hero)
+    if (!resizeObs) {
+      resizeObs = new ResizeObserver(() => scheduleAnalyze())
     }
-    if (text) {
-      textResizeObs = new ResizeObserver(() => scheduleAnalyze())
-      textResizeObs.observe(text)
+
+    // Add new targets. WeakSet guards against duplicate observe() on
+    // the same node (which would otherwise be a no-op but pollutes
+    // diagnostics). Use isElement() to defend against template refs
+    // that briefly hold non-Element values during teardown.
+    if (isElement(hero) && !observedTargets.has(hero)) {
+      resizeObs.observe(hero)
+      observedTargets.add(hero)
+    }
+    if (isElement(text) && !observedTargets.has(text)) {
+      resizeObs.observe(text)
+      observedTargets.add(text)
     }
 
     // If we now have a text ref but the last sample used the fallback
