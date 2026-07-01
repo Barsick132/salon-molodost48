@@ -686,7 +686,55 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 @media (max-width: 700px) {
   .hero { min-height: 70vh; }
-  .hero__inner { padding: 5rem 0 3rem; }
+
+  /* Force horizontal centering on mobile. There isn't room for a
+     600px editorial column on a phone, so left/right modes snap to
+     centred layout. Vertical (top/center/bottom) is preserved —
+     the editor can still anchor the text to the top or bottom of
+     the hero even on mobile. */
+  .hero--h-left .hero__inner,
+  .hero--h-right .hero__inner {
+    align-self: center;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 720px;
+    text-align: center;
+    padding: 4rem 1.5rem;
+  }
+
+  /* Editorial accent lines shrink / hide on small screens —
+     they look elegant on a wide hero but noisy on a phone. */
+  .hero--top .hero__inner::before,
+  .hero--bottom .hero__inner::after {
+    height: 1px;
+    opacity: 0.5;
+  }
+  .hero--top .hero__inner::before { top: 2rem; }
+  .hero--bottom .hero__inner::after { bottom: 2rem; }
+  .hero--center .hero__inner::before,
+  .hero--center .hero__inner::after { width: 40px; opacity: 0.4; }
+
+  /* Shrink the half-screen block on mobile — 55vh of a 700px tall
+     phone is too much. Cap at a more reasonable 50vh but allow it
+     to be smaller if the content is short. */
+  .hero--top .hero__inner,
+  .hero--bottom .hero__inner {
+    min-height: 45vh;
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+
+  /* CTAs go full-width on mobile so they're easier to tap. */
+  .hero--h-left .hero__cta,
+  .hero--h-right .hero__cta {
+    justify-content: center;
+  }
+  .hero__cta-primary,
+  .hero__cta-secondary {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   .hero__bg img { object-position: 50% 30%; }
 }
 @media (min-aspect-ratio: 16/9) {
