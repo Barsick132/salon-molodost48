@@ -6,7 +6,7 @@
  * each one by `type`. The services preview is always rendered after the
  * advantages block (when services page is enabled) — it's data, not content.
  */
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, ref, computed, useTemplateRef } from 'vue';
 import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
 import { useBlocksStore, type BlockBase, type HeroPayload, type StatItem, type AdvantageItem, type CtaStripPayload } from '@/stores/blocks';
@@ -179,7 +179,9 @@ const heroImageUrl = computed(() => {
   const hero = blocks.value.find(isHero);
   return hero ? heroPayload(hero).imageUrl ?? null : null;
 });
-const heroOverlay = useHeroOverlay(heroImageUrl);
+const heroElRef = useTemplateRef<HTMLElement>('heroEl');
+const heroInnerElRef = useTemplateRef<HTMLElement>('heroInnerEl');
+const heroOverlay = useHeroOverlay(heroImageUrl, { hero: heroElRef, text: heroInnerElRef });
 const heroOverlayStyle = computed(() => heroOverlay.style.value);
 const heroTextTone = computed(() => heroOverlay.textTone.value);
 const heroTextColor = computed(() => heroOverlay.textColor.value);
@@ -191,7 +193,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]" :data-text-tone="heroTextTone">
+      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
@@ -203,7 +205,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
             aria-hidden="true"
           ></div>
         </div>
-        <div class="hero__inner container">
+        <div ref="heroInnerEl" class="hero__inner container">
           <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).eyebrow }}</div>
           <h1 class="hero__title" :style="{ color: heroTextColor }">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span>
@@ -443,7 +445,13 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: none;
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
+  /* A faint dark stroke around the glyphs keeps the crimson readable
+     when the photo's red tones (lipstick, dress, warm light) sit
+     behind it. The drop-shadow trick is the cheapest way to add a
+     stroke to a background-clip:text element. */
+  filter:
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.45))
+    drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 .hero__title-after { display: inline; }
 
