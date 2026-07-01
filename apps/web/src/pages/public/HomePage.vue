@@ -195,7 +195,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value">
+      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
