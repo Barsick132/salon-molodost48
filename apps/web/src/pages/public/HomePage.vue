@@ -182,6 +182,8 @@ const heroImageUrl = computed(() => {
 const heroOverlay = useHeroOverlay(heroImageUrl);
 const heroOverlayStyle = computed(() => heroOverlay.style.value);
 const heroTextTone = computed(() => heroOverlay.textTone.value);
+const heroTextColor = computed(() => heroOverlay.textColor.value);
+const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 </script>
 
 <template>
@@ -202,14 +204,14 @@ const heroTextTone = computed(() => heroOverlay.textTone.value);
           ></div>
         </div>
         <div class="hero__inner container">
-          <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow">{{ heroPayload(b).eyebrow }}</div>
-          <h1 class="hero__title">
+          <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).eyebrow }}</div>
+          <h1 class="hero__title" :style="{ color: heroTextColor }">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span>
             <span v-if="heroPayload(b).titleAccent" class="hero__title-accent">{{ heroPayload(b).titleAccent }}</span>
             <span v-if="heroPayload(b).titleAfter" class="hero__title-after">{{ heroPayload(b).titleAfter }}</span>
             <span v-if="!heroPayload(b).titleBefore && !heroPayload(b).titleAccent && heroPayload(b).title" class="hero__title-before">{{ heroPayload(b).title }}</span>
           </h1>
-          <p v-if="heroPayload(b).lead" class="hero__lead">{{ heroPayload(b).lead }}</p>
+          <p v-if="heroPayload(b).lead" class="hero__lead" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).lead }}</p>
           <div class="hero__cta">
             <a v-if="heroPayload(b).primaryCtaLabel" :href="resolveCta(heroPayload(b).primaryCtaHref)" class="hero__cta-primary">
               {{ heroPayload(b).primaryCtaLabel }}
@@ -393,19 +395,10 @@ const heroTextTone = computed(() => heroOverlay.textTone.value);
   transition: opacity 0.3s ease, background 0.4s ease;
 }
 
-/* When useHeroOverlay decides the photo is bright (text region avgL > 0.65),
-   switch the headline and lead to a dark tone with a soft white text-shadow
-   so the title is still readable on a soft/airy photo. */
-.hero[data-text-tone="dark"] .hero__title-before,
-.hero[data-text-tone="dark"] .hero__title-after {
-  color: var(--color-text-primary);
-  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.5);
-}
-.hero[data-text-tone="dark"] .hero__eyebrow,
-.hero[data-text-tone="dark"] .hero__lead {
-  color: var(--color-text-primary);
-  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.4);
-}
+/* Text colours are set inline by useHeroOverlay: it picks a tinted
+   version of the dominant photo colour (warm-white for dark scrims,
+   warm-black for light scrims). The accent portion of the headline
+   keeps the brand crimson regardless of tone — see below. */
 
 .hero__inner {
   position: relative;
