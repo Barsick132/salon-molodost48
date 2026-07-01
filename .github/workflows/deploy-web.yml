@@ -59,7 +59,9 @@ jobs:
           pnpm --filter @molodost/web exec vite build
           echo "=== verify dist ==="
           test -f apps/web/dist/index.html || { echo "FAIL: dist/index.html missing"; exit 1; }
-          tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web dist
+          # -C apps/web/dist .  — package the dist contents flat (no dist/ prefix)
+          # so it lands at $LIVE/index.html, matching nginx root /var/www/molodost48/web.
+          tar -czf /tmp/molodost48-web-dist.tar.gz -C apps/web/dist .
           file /tmp/molodost48-web-dist.tar.gz
 
       - name: Upload + extract + reload nginx
