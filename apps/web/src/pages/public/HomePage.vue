@@ -367,9 +367,27 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 /* Horizontal alignment. .hero is a flex column, so cross-axis (horizontal)
    is controlled via align-self on the .hero__inner child. */
-.hero--h-left   .hero__inner { align-self: flex-start; text-align: left; margin: 0; }
-.hero--h-center .hero__inner { align-self: center; text-align: center; }
-.hero--h-right  .hero__inner { align-self: flex-end; text-align: right; margin: 0; }
+.hero--h-left   .hero__inner {
+  align-self: flex-start;
+  margin-left: max(1.5rem, calc((100vw - 1280px) / 2 + 1.5rem));
+  margin-right: 1.5rem;
+  max-width: 600px;
+  text-align: left;
+}
+.hero--h-center .hero__inner {
+  align-self: center;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 880px;
+  text-align: center;
+}
+.hero--h-right  .hero__inner {
+  align-self: flex-end;
+  margin-right: max(1.5rem, calc((100vw - 1280px) / 2 + 1.5rem));
+  margin-left: 1.5rem;
+  max-width: 600px;
+  text-align: right;
+}
 
 .hero__bg {
   position: absolute;
@@ -426,7 +444,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 }
 /* Vertical alignment tweaks only — horizontal alignment is handled
    by .hero--h-* rules above. */
-.hero--bottom .hero__inner { padding-bottom: 4rem; }
+
 
 .hero__eyebrow {
   display: inline-block;
@@ -437,6 +455,17 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   margin-bottom: 1.5rem;
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  border: 0;
+  padding: 0;
+}
+/* Left/right editorial: vertical accent line beside the eyebrow. */
+.hero--h-left .hero__eyebrow {
+  border-left: 2px solid var(--color-accent);
+  padding-left: 0.85rem;
+}
+.hero--h-right .hero__eyebrow {
+  border-right: 2px solid var(--color-accent);
+  padding-right: 0.85rem;
 }
 
 .hero__title {
@@ -449,6 +478,15 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   color: #fff;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
 }
+/* Narrower, calmer title on left/right editorial modes. */
+.hero--h-left .hero__title,
+.hero--h-right .hero__title {
+  font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+  margin: 0 0 1.25rem;
+  max-width: 600px;
+}
+.hero--h-left .hero__title { margin-left: 0; margin-right: auto; }
+.hero--h-right .hero__title { margin-left: auto; margin-right: 0; }
 .hero__title-before { display: inline; }
 .hero__title-accent {
   display: inline;
@@ -476,6 +514,14 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   max-width: 580px;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
+.hero--h-left .hero__lead,
+.hero--h-right .hero__lead {
+  font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+  margin: 0 0 1.75rem;
+  max-width: 460px;
+}
+.hero--h-left .hero__lead { margin-left: 0; margin-right: auto; }
+.hero--h-right .hero__lead { margin-left: auto; margin-right: 0; }
 
 .hero__cta {
   display: flex;
@@ -483,7 +529,8 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   flex-wrap: wrap;
   justify-content: center;
 }
-.hero--top .hero__cta { justify-content: flex-start; }
+.hero--h-left .hero__cta { justify-content: flex-start; }
+.hero--h-right .hero__cta { justify-content: flex-end; }
 .hero__cta-primary {
   display: inline-flex;
   align-items: center;
