@@ -11,7 +11,14 @@ import type { FastifyPluginAsync } from 'fastify';
 
 const plugin: FastifyPluginAsync = async (app) => {
   app.get('/blocks', async (_req, reply) => {
-    reply.header('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    // Cache-Control: short max-age so admin edits propagate within a
+    // few seconds. Was max-age=30 which made the live-edit feel
+    // flaky — refresh after a PATCH in the admin would sometimes
+    // return the old payload from the browser cache. 5s + SWR keeps
+    // production traffic warm (the same /api/blocks response is
+    // reused for 5s by any concurrent visitor) while letting the
+    // admin see their change on the next refresh.
+    reply.header('Cache-Control', 'public, max-age=5, stale-while-revalidate=60');
     const blocks = await app.prisma.block.findMany({
       where: { enabled: true },
       orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
