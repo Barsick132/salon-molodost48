@@ -101,6 +101,7 @@ type Sample = {
   stdL: number
   palette: { r: number; g: number; b: number; h: number; s: number; l: number; fraction: number }[]
   dominant: { r: number; g: number; b: number }
+  textRegionDominant: { r: number; g: number; b: number }
   topFraction: number
 }
 
@@ -157,9 +158,13 @@ export function useHeroOverlay(imageUrl: Ref<string | null | undefined>): HeroOv
   }
 
   const apply = (s: Sample) => {
-    // Reject a fully neutral dominant (e.g. user uploaded a 1-color SVG)
-    // — fall back to a brand-tinted scrim.
-    const dom = s.dominant
+    // CRITICAL: pick the dominant colour from the TEXT REGION, not the
+    // whole image. With a portrait, sampling the whole image pulls in
+    // dark hair / dark backdrop and produces a near-black scrim that
+    // hides under the face. The text region (centre 60% x 40%) is
+    // where the headline actually sits, so its dominant colour is the
+    // one we want to *complement*, not to repeat.
+    const dom = s.textRegionDominant
     const isNeutralish = Math.max(dom.r, dom.g, dom.b) - Math.min(dom.r, dom.g, dom.b) < 18
     const baseR = isNeutralish ? 14 : dom.r
     const baseG = isNeutralish ? 14 : dom.g
@@ -168,8 +173,8 @@ export function useHeroOverlay(imageUrl: Ref<string | null | undefined>): HeroOv
     const tone: 'dark' | 'light' = s.avgL < 0.55 ? 'dark' : 'light'
     textTone.value = tone
 
-    // Overlay color: deep version of the dominant color (dark scrim)
-    // or creamy/pastel version (light scrim).
+    // Overlay colour: deep version of the text-region dominant (dark
+    // scrim) or creamy/pastel version (light scrim).
     let overlayR: number, overlayG: number, overlayB: number
     if (tone === 'dark') {
       // mix(baseColor, near-black, 0.55)
@@ -188,28 +193,36 @@ export function useHeroOverlay(imageUrl: Ref<string | null | undefined>): HeroOv
     const baseOpacity = tone === 'dark'
       ? clamp(0.62 + busyness * 0.8, 0.55, 0.9)
       : clamp(0.65 + busyness * 0.6, 0.6, 0.9)
-    const spotOpacity = clamp(baseOpacity * 0.55 + 0.15, 0.35, 0.75)
+    const edgeOpacity = clamp(0.4 + busyness * 0.5, 0.35, 0.7)
     const topShade = clamp(0.25 + busyness * 0.6, 0.2, 0.6)
+    const bottomShade = clamp(baseOpacity * 0.9 + 0.05, 0.5, 0.85)
 
+    // FULL-BLEED overlay covering the entire hero. Four layers, all
+    // using the same overlay colour (which is itself derived from the
+    // photo's text-region palette), so the scrim is visually consistent
+    // and the text is always readable regardless of which part of the
+    // hero it lands on.
     style.value = [
-      // Bottom: full-bleed scrim fading from transparent to overlay color.
-      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${baseOpacity.toFixed(2)}) 100%)`,
-      // Top: light shade so eyebrow / nav don't bleed into sky.
-      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${topShade.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 35%)`,
-      // Spot: oval puddle under the text, centres the readability.
-      `radial-gradient(ellipse 65% 50% at 50% 60%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${spotOpacity.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 70%)`,
+      // 1. Bottom scrim: full-width fade from transparent at top to
+      //    overlay at the bottom. Holds the bottom CTAs.
+      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 35%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${bottomShade.toFixed(2)}) 100%)`,
+      // 2. Top scrim: full-width shade at the top, fades to transparent
+      //    in the upper third. Protects the eyebrow / nav.
+      `linear-gradient(180deg, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${topShade.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 30%)`,
+      // 3. Center spotlight: a wide radial in the middle. Holds the
+      //    headline + lead readable in the centre of the frame.
+      `radial-gradient(ellipse 80% 65% at 50% 55%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${baseOpacity.toFixed(2)}) 0%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 75%)`,
+      // 4. Edge vignette: pulls opacity up at the outer rim so corners
+      //    stay readable even when the photo's edges are bright.
+      `radial-gradient(ellipse 110% 110% at 50% 50%, rgba(${overlayR}, ${overlayG}, ${overlayB}, 0) 55%, rgba(${overlayR}, ${overlayG}, ${overlayB}, ${edgeOpacity.toFixed(2)}) 100%)`,
     ].join(', ')
 
-    // Text color: opposite tone, with a tiny tint of the dominant
-    // color so the headline feels native to the photo. If tinting
-    // breaks WCAG contrast (e.g. dominant is near-white) we snap to
-    // pure white/black.
+    // Text colour: opposite tone, lightly tinted with the dominant
+    // colour so the headline feels native to the photo.
     if (tone === 'dark') {
-      // warm white tinted with 8% of the dominant color
       textColor.value = mixTint('#ffffff', baseR, baseG, baseB, 0.08)
       mutedTextColor.value = `rgba(${tintRgba('#ffffff', baseR, baseG, baseB, 0.08)}, 0.78)`
     } else {
-      // warm black tinted with 6% of the dominant color
       textColor.value = mixTint('#0a0a0a', baseR, baseG, baseB, 0.06)
       mutedTextColor.value = `rgba(${tintRgba('#0a0a0a', baseR, baseG, baseB, 0.06)}, 0.78)`
     }
@@ -357,6 +370,28 @@ function sampleImage(img: HTMLImageElement): Sample {
   const variance = textN > 0 ? totalL2 / textN - avgL * avgL : 0
   const stdL = Math.sqrt(Math.max(0, variance))
 
+  // Dominant colour of the TEXT REGION specifically. This is the colour
+  // the scrim needs to complement — it sits behind the headline.
+  // We pick the most-massive bucket in the text region, weighted by
+  // saturation so flat-shaded backdrop (e.g. dark hair) doesn't drown
+  // out the face tone.
+  let trBest: { r: number; g: number; b: number; h: number; s: number; l: number; count: number } | null = null
+  let trBestScore = -1
+  for (const b of textBuckets.values()) {
+    const score = b.count * (0.55 + b.s * 0.9)
+    if (score > trBestScore) {
+      trBestScore = score
+      trBest = b
+    }
+  }
+  const textRegionDominant = trBest
+    ? {
+        r: Math.round((trBest.r / trBest.count) * 255),
+        g: Math.round((trBest.g / trBest.count) * 255),
+        b: Math.round((trBest.b / trBest.count) * 255),
+      }
+    : { r: 20, g: 20, b: 20 }
+
   // Top 3 palette buckets by count.
   const sorted = [...buckets.values()].sort((a, b) => b.count - a.count).slice(0, 3)
   const totalSamples = [...buckets.values()].reduce((sum, b) => sum + b.count, 0)
@@ -397,7 +432,7 @@ function sampleImage(img: HTMLImageElement): Sample {
     ? palette.reduce((sum, p) => sum + p.s * p.fraction, 0)
     : 0
 
-  return { avgL, avgS, stdL, palette, dominant, topFraction }
+  return { avgL, avgS, stdL, palette, dominant, textRegionDominant, topFraction }
 }
 
 function bucketKey(h: number, s: number, l: number): string {
