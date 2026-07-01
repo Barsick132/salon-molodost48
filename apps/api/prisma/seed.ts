@@ -43,41 +43,28 @@ async function seedSiteSettings() {
     update: {},
     create: {
       id: 'singleton',
-      workingHours: [
-        { day: 'Пн', from: '10:00', to: '20:00', closed: false },
-        { day: 'Вт', from: '10:00', to: '20:00', closed: false },
-        { day: 'Ср', from: '10:00', to: '20:00', closed: false },
-        { day: 'Чт', from: '10:00', to: '20:00', closed: false },
-        { day: 'Пт', from: '10:00', to: '20:00', closed: false },
-        { day: 'Сб', from: '10:00', to: '20:00', closed: false },
-        { day: 'Вс', from: '10:00', to: '20:00', closed: false },
-      ],
-      socials: { vk: 'https://vk.com/salon_molodost48' },
+      address: 'г. Липецк, ул. Пушкина 4',
+      phones: ['8 (904) 219-19-99', '8 (474) 271-93-80'],
+      email: 'support@molodost48.ru',
+      workingHoursText: 'пн-пт 10:00–20:00, сб-вс выходной',
+      socials: {},
     },
   });
+  console.log('  ✓ Site settings');
 }
 
 async function seedBlocks() {
-  const existing = await prisma.block.count();
-  if (existing > 0) return;
-
   const defaults = [
-    { type: 'hero',       enabled: true,  order: 0,  payload: { title: 'Салон красоты бизнес-класса «Молодость»', subtitle: 'Парикмахерский зал · Ногтевой сервис · Косметология · Брови и ресницы · Макияж · SPA', ctaLabel: 'Записаться', ctaHref: 'https://dikidi.ru/1475188', backgroundImageId: null, slides: [] } },
-    { type: 'about',      enabled: true,  order: 1,  payload: { title: 'О салоне', body: 'Салон красоты бизнес-класса в Липецке. Профессиональные стилисты, косметика L\'Oréal, уютная атмосфера.', advantages: [{ icon: 'star', title: 'Бизнес-класс', text: 'Премиальный сервис и материалы' }, { icon: 'team', title: 'Опытные мастера', text: 'Команда профессионалов своего дела' }, { icon: 'leaf', title: 'L\'Oréal', text: 'Только профессиональная косметика' }] } },
-    { type: 'services',   enabled: true,  order: 2,  payload: { title: 'Услуги и цены', showPrices: true, categoryIds: [] } },
-    { type: 'masters',    enabled: false, order: 3,  payload: { title: 'Наши мастера', masterIds: [] } },
-    { type: 'promotions', enabled: false, order: 4,  payload: { title: 'Акции', promotionIds: [] } },
-    { type: 'gallery',    enabled: false, order: 5,  payload: { title: 'Наши работы', categoryIds: [] } },
-    { type: 'rooms',      enabled: false, order: 6,  payload: { title: 'Интерьер', roomIds: [] } },
-    { type: 'reviews',    enabled: false, order: 7,  payload: { title: 'Отзывы', count: 6 } },
-    { type: 'faq',        enabled: false, order: 8,  payload: { title: 'Частые вопросы', faqIds: [] } },
-    { type: 'vacancies',  enabled: false, order: 9,  payload: { title: 'Вакансии', vacancyIds: [] } },
-    { type: 'contacts',   enabled: true,  order: 10, payload: { title: 'Контакты', showMap: true } },
+    { type: 'banner', enabled: true, order: 0, payload: {} },
+    { type: 'stats', enabled: true, order: 1, payload: {} },
+    { type: 'advantages', enabled: true, order: 2, payload: {} },
+    { type: 'cta-strip', enabled: true, order: 3, payload: {} },
   ];
-
+  await prisma.block.deleteMany({});
   for (const b of defaults) {
     await prisma.block.create({ data: b });
   }
+  console.log('  ✓ Blocks');
 }
 
 async function seedIntegrations() {

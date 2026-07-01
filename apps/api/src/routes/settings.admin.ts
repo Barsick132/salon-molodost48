@@ -20,16 +20,17 @@ function js(s: z.ZodType): unknown {
 }
 
 const Contact = z.object({
-  shortAddress: z.string().max(300).optional(),
-  fullAddress:  z.string().max(500).optional(),
-  phones:       z.array(z.string().max(40)).max(10).optional(),
-  email:        z.string().email().max(160).optional(),
+  // Primary short address shown everywhere (banner, footer, contacts
+  // page, Yandex map). Replaces the old shortAddress/fullAddress pair.
+  address:    z.string().min(1).max(300).optional(),
+  phones:     z.array(z.string().max(40)).max(10).optional(),
+  email:      z.string().email().max(160).optional(),
   // Free-form working-hours text. Examples shown as placeholders in
   // the admin form:
   //   "пн-пт 10:00–20:00, сб-вс выходной"
   //   "Ежедневно 10:00–20:00"
   workingHoursText: z.string().max(500).optional(),
-  socials:      z.record(z.string(), z.string().url().or(z.literal(''))).optional(),
+  socials:    z.record(z.string(), z.string().url().or(z.literal(''))).optional(),
 });
 
 // Map config: only three things matter.
@@ -109,8 +110,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const updated = await app.prisma.siteSettings.update({
       where: { id: 'singleton' },
       data: {
-        ...(patch.shortAddress     !== undefined ? { shortAddress: patch.shortAddress } : {}),
-        ...(patch.fullAddress      !== undefined ? { address: patch.fullAddress } : {}),
+        ...(patch.address          !== undefined ? { address: patch.address } : {}),
         ...(patch.phones           !== undefined ? { phones: patch.phones } : {}),
         ...(patch.email            !== undefined ? { email: patch.email } : {}),
         ...(patch.workingHoursText !== undefined ? { workingHoursText: patch.workingHoursText } : {}),
@@ -119,8 +119,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     });
     await audit(app, req, 'site.contact.update', patch);
     return { ok: true, contact: {
-      shortAddress: updated.shortAddress,
-      fullAddress: updated.address,
+      address: updated.address,
       phones: updated.phones,
       email: updated.email,
       workingHoursText: updated.workingHoursText,

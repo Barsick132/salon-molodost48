@@ -16,8 +16,7 @@ function safe(d: SiteSettings) {
       tagline: d.brandTagline,
     },
     contact: {
-      address: d.shortAddress,
-      fullAddress: d.address,
+      address: d.address,
       phones: d.phones,
       email: d.email,
       // Free-form working-hours text. Public site displays it as-is.
