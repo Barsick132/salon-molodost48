@@ -129,7 +129,12 @@ export function useHeroOverlay(imageUrl: Ref<string | null | undefined>): HeroOv
       img = new Image()
       img.crossOrigin = 'anonymous'
       img.decoding = 'async'
-      img.src = url
+      // Cache-bust so the browser doesn't reuse an older cached copy
+      // of the image (which may have been fetched before CORS headers
+      // were added on /media/ in nginx). The query string is stripped
+      // before caching the result.
+      const cached2 = url.includes('?') ? url : `${url}${url.includes('?') ? '&' : '?'}cors=1`
+      img.src = cached2
       await new Promise<void>((resolve, reject) => {
         if (!img) return reject(new Error('no image'))
         img.onload = () => resolve()
