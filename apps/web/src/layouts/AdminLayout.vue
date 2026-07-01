@@ -75,6 +75,7 @@ watch(() => route.fullPath, () => {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .admin-main {
   display: flex;
@@ -97,7 +98,8 @@ watch(() => route.fullPath, () => {
   }
 }
 
-/* Drawer */
+/* Drawer — no overflow on .drawer; the inner AdminSidebar handles it.
+   This avoids the double-scrollbar you got on mobile. */
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -108,12 +110,14 @@ watch(() => route.fullPath, () => {
   justify-content: flex-start;
 }
 .drawer {
-  width: min(280px, 80vw);
+  width: min(280px, 85vw);
   background: var(--color-surface-1);
   border-right: 1px solid var(--color-border);
-  height: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   position: relative;
-  overflow-y: auto;
 }
 .drawer-close {
   position: absolute;

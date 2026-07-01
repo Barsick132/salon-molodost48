@@ -136,9 +136,16 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
   border-radius: 4px;
 }
 .brand__text {
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  /* Cormorant Garamond Italic — элегантный выделяющийся серифный курсив,
+     ставим через переменную с фолбэком на Fraunces. Бренд сразу читается как
+     beauty/salon — как у Aesop, Diptyque, Airelle. */
+  font-family: var(--font-brand), var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.6rem;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  color: var(--color-text-primary);
 }
 .nav-desktop {
   display: flex;

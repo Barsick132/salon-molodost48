@@ -129,6 +129,26 @@ function resolveCta(href: string): string {
   return href;
 }
 
+// Scroll cue handler — find the first non-hero <section> directly under
+// `.home` and smooth-scroll to it. Falls back to "just below the hero" if no
+// later block exists yet (admin hasn't set up anything).
+function scrollPastHero() {
+  const root = document.querySelector('.home');
+  if (!root) {
+    window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
+    return;
+  }
+  const sections = root.querySelectorAll(':scope > section');
+  for (const s of Array.from(sections)) {
+    if (!s.classList.contains('hero')) {
+      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+  }
+  // No following block — at least skip past the hero so the cue feels responsive.
+  window.scrollBy({ top: window.innerHeight * 0.85, behavior: 'smooth' });
+}
+
 // Always fetch services on mount, independent of whether the visibility flags
 // have loaded yet. If the section ends up disabled we still waste one HTTP
 // round-trip, but we never get stuck in a skeleton forever.
@@ -186,7 +206,7 @@ onMounted(async () => {
             </a>
           </div>
         </div>
-        <a v-if="heroPayload(b).showScrollCue" href="#after-hero" class="hero__scroll-cue" aria-label="Прокрутить вниз">
+        <a v-if="heroPayload(b).showScrollCue" href="#" class="hero__scroll-cue" @click.prevent="scrollPastHero" aria-label="Прокрутить вниз">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -208,15 +228,19 @@ onMounted(async () => {
       <!-- ===== ADVANTAGES ===== -->
       <section v-else-if="isAdvantages(b)" class="advantages">
         <div class="container">
-          <div class="bento">
+          <div class="feature-list">
             <article
               v-for="(a, i) in advItems(b)"
               :key="i"
-              :class="['bento-card', `bento-card--${i}`]"
+              class="feature-row"
             >
-              <span class="bento-card__icon" v-html="isKnownIcon(a.icon) ? renderAdvantageIcon(a.icon) : ''" />
-              <h3 class="bento-card__title">{{ a.title }}</h3>
-              <p class="bento-card__text">{{ a.description }}</p>
+              <span class="feature-row__num">{{ String(i + 1).padStart(2, '0') }}</span>
+              <div class="feature-row__icon" v-html="isKnownIcon(a.icon) ? renderAdvantageIcon(a.icon, 26) : ''" />
+              <div class="feature-row__body">
+                <h3 class="feature-row__title">{{ a.title }}</h3>
+                <p class="feature-row__text">{{ a.description }}</p>
+              </div>
+              <span class="feature-row__deco" aria-hidden="true"></span>
             </article>
           </div>
         </div>
@@ -243,8 +267,8 @@ onMounted(async () => {
         v-if="site.settings.loaded && showServicesSection && idx === servicesInsertAfter"
         class="services"
       >
-        <div class="container">
-          <div class="section-head">
+        <div class="container services__inner">
+          <div class="section-head section-head--center">
             <div class="section-tag">Услуги</div>
             <h2 class="section-title">Полный спектр.</h2>
             <p class="section-lead">
@@ -291,9 +315,6 @@ onMounted(async () => {
         </div>
       </section>
     </template>
-
-    <!-- Anchor target for hero scroll cue -->
-    <div id="after-hero" aria-hidden="true"></div>
 
     <!-- Empty-state hint for first-time visitors -->
     <div v-if="!blocksStore.loading && blocks.length === 0" class="empty-state">
@@ -512,68 +533,106 @@ onMounted(async () => {
   letter-spacing: 0.06em;
 }
 
-/* ============ ADVANTAGES (BENTO) ============ */
-.advantages { padding: 3rem 0; }
-.bento {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1rem;
-}
-.bento-card {
-  position: relative;
-  padding: 1.75rem;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  min-height: 200px;
+/* ============ ADVANTAGES (feature rows) ============ */
+.advantages { padding: 5rem 0 3rem; }
+.feature-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
+  border-top: 1px solid var(--color-border);
 }
-.bento-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 80% 0%, rgba(225, 29, 72, 0.08), transparent 60%);
-  pointer-events: none;
+.feature-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 80px 60px 1fr 60px;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2.25rem 0;
+  border-bottom: 1px solid var(--color-border);
+  transition: padding 0.25s var(--ease-out);
 }
-.bento-card--0 { grid-column: span 6; }
-.bento-card--1 { grid-column: span 6; }
-.bento-card--2 { grid-column: span 4; }
-.bento-card--3 { grid-column: span 8; }
-.bento-card__icon {
+.feature-row:hover {
+  padding-left: 1rem;
+}
+.feature-row__num {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+.feature-row__icon {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-sm);
-  background: rgba(225, 29, 72, 0.12);
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: rgba(225, 29, 72, 0.1);
   color: var(--color-accent);
-  font-size: 1rem;
-  position: relative;
+  border: 1px solid rgba(225, 29, 72, 0.18);
+  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
 }
-.bento-card__icon :deep(svg) {
-  display: block;
+.feature-row:hover .feature-row__icon {
+  background: var(--color-accent);
+  color: white;
+  transform: rotate(-4deg) scale(1.05);
 }
-.bento-card__title {
+.feature-row__icon :deep(svg) { display: block; }
+.feature-row__title {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
   font-weight: 600;
   letter-spacing: -0.01em;
+  margin: 0 0 0.3rem;
   color: var(--color-text-primary);
-  position: relative;
 }
-.bento-card__text {
+.feature-row__text {
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--color-text-secondary);
-  position: relative;
+  margin: 0;
+  max-width: 60ch;
+}
+.feature-row__deco {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.feature-row:hover .feature-row__deco {
+  opacity: 1;
+  transform: translateX(0);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+@media (max-width: 700px) {
+  .feature-row {
+    grid-template-columns: 40px 1fr;
+    gap: 1rem;
+    padding: 1.5rem 0;
+  }
+  .feature-row__num { grid-row: 1; grid-column: 1 / -1; text-align: right; }
+  .feature-row__icon { grid-row: 2; grid-column: 1; }
+  .feature-row__body { grid-row: 2; grid-column: 2; }
+  .feature-row__deco { display: none; }
 }
 
 /* ============ SERVICES ============ */
 .services { padding: 4rem 0 3rem; }
-.section-head { max-width: 720px; margin-bottom: 2.5rem; }
+.services__inner { max-width: 880px; margin: 0 auto; }
+.section-head { max-width: 720px; margin: 0 auto 2.5rem; }
+.section-head--center {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .section-tag {
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -594,6 +653,8 @@ onMounted(async () => {
   color: var(--color-text-secondary);
   font-size: 1.05rem;
   line-height: 1.5;
+  max-width: 60ch;
+  margin: 0 auto;
 }
 .service-grid { display: flex; flex-direction: column; }
 .service-row {
