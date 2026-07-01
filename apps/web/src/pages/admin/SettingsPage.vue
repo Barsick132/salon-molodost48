@@ -13,22 +13,16 @@
 import { ref, computed, onMounted } from 'vue';
 import { api, ApiError } from '@/api/client';
 
-interface WorkingHour { day: string; label: string; open: string; close: string; isDayOff: boolean; }
+// Working hours are a single free-form text field. Examples:
+//   "пн-пт 10:00–20:00, сб-вс выходной"
+//   "Ежедневно 10:00–20:00"
+//   "пн-сб 09:00–21:00, вс — выходной"
+const PLACEHOLDER_HOURS = 'пн-пт 10:00–20:00, сб-вс выходной'
 
-const emptyHours = (): WorkingHour[] => ([
-  { day: 'mon', label: 'Пн', open: '09:00', close: '21:00', isDayOff: false },
-  { day: 'tue', label: 'Вт', open: '09:00', close: '21:00', isDayOff: false },
-  { day: 'wed', label: 'Ср', open: '09:00', close: '21:00', isDayOff: false },
-  { day: 'thu', label: 'Чт', open: '09:00', close: '21:00', isDayOff: false },
-  { day: 'fri', label: 'Пт', open: '09:00', close: '21:00', isDayOff: false },
-  { day: 'sat', label: 'Сб', open: '09:00', close: '20:00', isDayOff: false },
-  { day: 'sun', label: 'Вс', open: '', close: '', isDayOff: true },
-]);
-
-type Section = 'contact' | 'map' | 'visibility' | 'brand';
-const saving = ref<Record<Section, boolean>>({ contact: false, map: false, visibility: false, brand: false });
+type Section = 'contact' | 'map' | 'visibility' | 'brand' | 'cta';
+const saving = ref<Record<Section, boolean>>({ contact: false, map: false, visibility: false, brand: false, cta: false });
 const message = ref<Record<Section, { type: 'ok' | 'error'; text: string } | null>>({
-  contact: null, map: null, visibility: null, brand: null,
+  contact: null, map: null, visibility: null, brand: null, cta: null,
 });
 const uploadError = ref<string | null>(null);
 
@@ -94,44 +88,46 @@ const contact = ref({
   fullAddress: '',
   phones: [''],
   email: '',
-  workingHours: emptyHours(),
+  workingHours: PLACEHOLDER_HOURS,
   socials: { vk: '', telegram: '', whatsapp: '', instagram: '' } as Record<string, string>,
 });
 
-// Map
+// Map: only three things matter — provider (yandex / custom / hidden),
+// iframeUrl (only when provider = "custom"), zoom. No more
+// coords / custom marker / route start hint.
 const map_ = ref({
-  provider: 'yandex',
+  provider: 'yandex' as 'yandex' | 'custom' | 'hidden',
   iframeUrl: '',
-  markerLat: null as number | null,
-  markerLng: null as number | null,
   zoom: 15,
-  customMarkerUrl: '',
-  routeStartHint: 'Ваш адрес или точка на карте',
 });
 
-// Visibility
+// Visibility: only the services module toggle now.
 const visibility = ref({
   servicesPageEnabled: true,
-  mastersPageEnabled: true,
-  galleryPageEnabled: true,
-  promotionsPageEnabled: true,
-  reviewsPageEnabled: true,
-  vacanciesPageEnabled: true,
-  faqPageEnabled: true,
-  contactsPageEnabled: true,
   homeServicesSectionEnabled: true,
   servicesInNavEnabled: true,
 });
 
+// CTA — single source of truth for the "Записаться онлайн" button.
+const cta = ref({
+  ctaLabel: 'Записаться онлайн',
+  ctaUrl: 'https://dikidi.ru/#widget=212727',
+  ctaShowInToolbar: true,
+  ctaShowInBanner: true,
+  ctaShowInCtaStrip: true,
+});
+
+// Map preview iframe src. Yandex has a free map-widget generator that
+// takes a query string. When provider = "yandex" we point the iframe
+// at the address — no coords, no API key. When provider = "custom"
+// we just embed the user-supplied iframe URL. Hidden -> no iframe.
 const mapPreviewSrc = computed(() => {
   const m = map_.value;
-  if (!m.iframeUrl && (m.markerLat == null || m.markerLng == null)) return '';
-  if (m.iframeUrl) return m.iframeUrl;
-  const lat = m.markerLat!;
-  const lng = m.markerLng!;
+  if (m.provider === 'hidden') return '';
+  if (m.provider === 'custom') return m.iframeUrl || '';
+  const q = encodeURIComponent(contact.value.shortAddress || contact.value.fullAddress || '');
   const z = m.zoom ?? 15;
-  const label = encodeURIComponent(contact.value.shortAddress || '');
-  return `https://yandex.ru/map-widget/v1/?ll=${lng},${lat}&z=${z}&pt=${lng},${lat},pm2bll~${label}`;
+  return `https://yandex.ru/map-widget/v1/?text=${q}&z=${z}`;
 });
 
 async function loadAll() {
@@ -148,22 +144,24 @@ async function loadAll() {
   contact.value.fullAddress = pub.contact.fullAddress || '';
   contact.value.phones = pub.contact.phones?.length ? pub.contact.phones : [''];
   contact.value.email = pub.contact.email || '';
-  if (Array.isArray(pub.contact.workingHours) && pub.contact.workingHours.length) {
-    contact.value.workingHours = pub.contact.workingHours;
-  }
+  contact.value.workingHours = pub.contact.workingHours || PLACEHOLDER_HOURS;
   if (pub.contact.socials && Object.keys(pub.contact.socials).length) {
     contact.value.socials = { vk: '', telegram: '', whatsapp: '', instagram: '', ...pub.contact.socials };
   }
 
-  map_.value.provider = pub.map.provider;
+  map_.value.provider = pub.map.provider || 'yandex';
   map_.value.iframeUrl = pub.map.iframeUrl || '';
-  map_.value.markerLat = pub.map.markerLat;
-  map_.value.markerLng = pub.map.markerLng;
-  map_.value.zoom = pub.map.zoom;
-  map_.value.customMarkerUrl = pub.map.customMarkerUrl || '';
-  map_.value.routeStartHint = pub.map.routeStartHint;
+  map_.value.zoom = pub.map.zoom || 15;
 
   Object.assign(visibility.value, pub.pages);
+
+  if (pub.cta) {
+    cta.value.ctaLabel = pub.cta.label || 'Записаться онлайн';
+    cta.value.ctaUrl = pub.cta.url || 'https://dikidi.ru/#widget=212727';
+    cta.value.ctaShowInToolbar = pub.cta.showInToolbar !== false;
+    cta.value.ctaShowInBanner = pub.cta.showInBanner !== false;
+    cta.value.ctaShowInCtaStrip = pub.cta.showInCtaStrip !== false;
+  }
 }
 
 function setMsg(s: Section, type: 'ok' | 'error', text: string) {
@@ -191,7 +189,7 @@ async function saveContact() {
       fullAddress: contact.value.fullAddress,
       phones: contact.value.phones.map((p) => p.trim()).filter(Boolean),
       email: contact.value.email,
-      workingHours: contact.value.workingHours,
+      workingHoursText: contact.value.workingHours,
       socials: Object.fromEntries(
         Object.entries(contact.value.socials).filter(([, v]) => v.trim()),
       ),
@@ -211,11 +209,7 @@ async function saveMap() {
     const body: Record<string, unknown> = {
       provider: map_.value.provider,
       iframeUrl: map_.value.iframeUrl,
-      markerLat: map_.value.markerLat,
-      markerLng: map_.value.markerLng,
       zoom: map_.value.zoom,
-      customMarkerUrl: map_.value.customMarkerUrl,
-      routeStartHint: map_.value.routeStartHint,
     };
     await api('/admin/site/map', { method: 'PUT', body });
     setMsg('map', 'ok', 'Настройки карты сохранены');
@@ -223,6 +217,18 @@ async function saveMap() {
     setMsg('map', 'error', e instanceof ApiError ? e.message : 'Не удалось');
   } finally {
     saving.value.map = false;
+  }
+}
+
+async function saveCta() {
+  saving.value.cta = true;
+  try {
+    await api('/admin/site/cta', { method: 'PUT', body: cta.value });
+    setMsg('cta', 'ok', 'Кнопка «Записаться онлайн» обновлена');
+  } catch (e) {
+    setMsg('cta', 'error', e instanceof ApiError ? e.message : 'Не удалось');
+  } finally {
+    saving.value.cta = false;
   }
 }
 
@@ -249,36 +255,8 @@ function addSocial() {
 }
 function removeSocial(key: string) { delete contact.value.socials[key]; }
 
-function onCoord(ev: Event, which: 'lat' | 'lng') {
-  const v = (ev.target as HTMLInputElement).value;
-  const n = v === '' ? null : Number(v);
-  if (which === 'lat') map_.value.markerLat = Number.isFinite(n) ? n : null;
-  else map_.value.markerLng = Number.isFinite(n) ? n : null;
-}
 
-async function geocodeYandex() {
-  const addr = (contact.value.shortAddress || contact.value.fullAddress || '').trim();
-  if (!addr) return;
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&accept-language=ru`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data: Array<{ lat: string; lon: string }> = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const hit = data[0]!;
-      const lat = parseFloat(hit.lat);
-      const lng = parseFloat(hit.lon);
-      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-        map_.value.markerLat = lat;
-        map_.value.markerLng = lng;
-        return;
-      }
-    }
-    alert('Координаты не найдены. Введите их вручную или уточните адрес.');
-  } catch {
-    alert('Сервис геокодирования недоступен. Введите координаты вручную.');
-  }
-}
+
 
 onMounted(loadAll);
 </script>
@@ -399,20 +377,14 @@ onMounted(loadAll);
 
         <div class="field" style="grid-column: 1 / -1;">
           <span class="field__label">Часы работы</span>
-          <div class="hours-table">
-            <div class="hours-table__head">
-              <span>День</span><span>Открыто</span><span>Закрыто</span><span>Выходной</span>
-            </div>
-            <div v-for="d in contact.workingHours" :key="d.day" class="hours-table__row">
-              <span class="hours-table__day">{{ d.label }}</span>
-              <input v-model="d.open" type="time" class="field__input" :disabled="d.isDayOff" />
-              <input v-model="d.close" type="time" class="field__input" :disabled="d.isDayOff" />
-              <label class="check">
-                <input type="checkbox" v-model="d.isDayOff" />
-                <span>вых.</span>
-              </label>
-            </div>
-          </div>
+          <input
+            v-model="contact.workingHours"
+            class="field__input"
+            :placeholder="PLACEHOLDER_HOURS"
+          />
+          <span class="field__hint">
+            Одна строка в свободной форме. Примеры: «пн-пт 10:00–20:00, сб-вс выходной», «Ежедневно 10:00–20:00».
+          </span>
         </div>
 
         <div class="field" style="grid-column: 1 / -1;">
@@ -434,7 +406,7 @@ onMounted(loadAll);
       <header class="card__head">
         <div>
           <h2>Карта</h2>
-          <p>Яндекс.Карты бесплатно. Можно вставить и iframe любого провайдера.</p>
+          <p>Яндекс.Карты бесплатно, генерируются по адресу автоматически. Можно скрыть или вставить свой iframe.</p>
         </div>
         <button class="btn btn--primary" :disabled="saving.map" @click="saveMap">
           {{ saving.map ? 'Сохраняем…' : 'Сохранить' }}
@@ -446,65 +418,20 @@ onMounted(loadAll);
         <label class="field">
           <span class="field__label">Провайдер</span>
           <select v-model="map_.provider" class="field__input">
-            <option value="yandex">Яндекс.Карты (рекомендуем)</option>
-            <option value="google">Google Maps</option>
-            <option value="osm">OpenStreetMap</option>
-            <option value="custom-iframe">Кастомный iframe</option>
+            <option value="yandex">Яндекс.Карты (по адресу, бесплатно)</option>
+            <option value="custom">Кастомный iframe</option>
+            <option value="hidden">Скрыть карту</option>
           </select>
         </label>
-        <label class="field">
+        <label class="field" v-if="map_.provider !== 'hidden'">
           <span class="field__label">Масштаб</span>
           <input v-model.number="map_.zoom" type="number" min="1" max="21" class="field__input" />
         </label>
 
-        <label class="field">
-          <span class="field__label">Широта (lat)</span>
-          <input
-            :value="map_.markerLat ?? ''"
-            @input="onCoord($event, 'lat')"
-            type="number"
-            step="any"
-            class="field__input"
-            placeholder="52.608672"
-          />
-        </label>
-        <label class="field">
-          <span class="field__label">Долгота (lng)</span>
-          <input
-            :value="map_.markerLng ?? ''"
-            @input="onCoord($event, 'lng')"
-            type="number"
-            step="any"
-            class="field__input"
-            placeholder="39.598543"
-          />
-        </label>
-
-        <div class="field" style="grid-column: 1 / -1;">
-          <button type="button" class="link-btn" @click="geocodeYandex">
-            Подставить координаты по адресу
-          </button>
-          <span class="field__hint">Через OpenStreetMap Nominatim. Бесплатно, ключ не требуется.</span>
-        </div>
-
-        <label class="field" style="grid-column: 1 / -1;">
-          <span class="field__label">Кастомный iframe URL (необязательно)</span>
-          <input v-model="map_.iframeUrl" class="field__input" placeholder="https://yandex.ru/map-widget/v1/?ll=39.598543,52.608672&z=15" />
-          <span class="field__hint">Если заполнено — используется вместо автогенерации.</span>
-        </label>
-
-        <label class="field" style="grid-column: 1 / -1;">
-          <span class="field__label">Кастомный значок на карте (необязательно)</span>
-          <input v-model="map_.customMarkerUrl" class="field__input" placeholder="https://molodost48.ru/media/marker.png" />
-          <span class="field__hint">
-            Для полноценной подмены через Yandex JS API нужен свой ключ — пока используется стандартная
-            красная метка. URL хранится для перехода на API-режим в будущем.
-          </span>
-        </label>
-
-        <label class="field" style="grid-column: 1 / -1;">
-          <span class="field__label">Подсказка «Откуда едете?»</span>
-          <input v-model="map_.routeStartHint" class="field__input" />
+        <label class="field" v-if="map_.provider === 'custom'" style="grid-column: 1 / -1;">
+          <span class="field__label">URL iframe (любой провайдер)</span>
+          <input v-model="map_.iframeUrl" class="field__input" placeholder="https://yandex.ru/map-widget/v1/?text=г.%20Липецк&z=15" />
+          <span class="field__hint">Вставьте полный src из встраивания любого картографического сервиса.</span>
         </label>
 
         <div v-if="mapPreviewSrc" class="map-preview" style="grid-column: 1 / -1;">
@@ -540,34 +467,48 @@ onMounted(loadAll);
           <span>Секция «Услуги» на главной</span>
           <input type="checkbox" v-model="visibility.homeServicesSectionEnabled" />
         </label>
-        <label class="toggle-row">
-          <span>Страница «Мастера»</span>
-          <input type="checkbox" v-model="visibility.mastersPageEnabled" />
+      </div>
+    </section>
+
+    <!-- ====== CTA ====== -->
+    <section class="card">
+      <header class="card__head">
+        <div>
+          <h2>Кнопка «Записаться онлайн»</h2>
+          <p>Один источник для тулбара, баннера и блока «Готовы записаться». Везде одинаковый текст и ссылка.</p>
+        </div>
+        <button class="btn btn--primary" :disabled="saving.cta" @click="saveCta">
+          {{ saving.cta ? 'Сохраняем…' : 'Сохранить' }}
+        </button>
+      </header>
+      <div v-if="message.cta" :class="['flash', `flash--${message.cta.type}`]">{{ message.cta.text }}</div>
+
+      <div class="grid">
+        <label class="field">
+          <span class="field__label">Текст кнопки</span>
+          <input v-model="cta.ctaLabel" class="field__input" placeholder="Записаться онлайн" />
         </label>
-        <label class="toggle-row">
-          <span>Страница «Галерея»</span>
-          <input type="checkbox" v-model="visibility.galleryPageEnabled" />
+        <label class="field" style="grid-column: 1 / -1;">
+          <span class="field__label">Ссылка (URL)</span>
+          <input v-model="cta.ctaUrl" class="field__input" placeholder="https://dikidi.ru/#widget=..." />
+          <span class="field__hint">Куда ведёт кнопка: запись через Dikidi, WhatsApp, прямой телефон — что угодно.</span>
         </label>
-        <label class="toggle-row">
-          <span>Страница «Акции»</span>
-          <input type="checkbox" v-model="visibility.promotionsPageEnabled" />
-        </label>
-        <label class="toggle-row">
-          <span>Страница «Отзывы»</span>
-          <input type="checkbox" v-model="visibility.reviewsPageEnabled" />
-        </label>
-        <label class="toggle-row">
-          <span>Страница «Вакансии»</span>
-          <input type="checkbox" v-model="visibility.vacanciesPageEnabled" />
-        </label>
-        <label class="toggle-row">
-          <span>Страница «FAQ»</span>
-          <input type="checkbox" v-model="visibility.faqPageEnabled" />
-        </label>
-        <label class="toggle-row">
-          <span>Страница «Контакты»</span>
-          <input type="checkbox" v-model="visibility.contactsPageEnabled" />
-        </label>
+
+        <div style="grid-column: 1 / -1; display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; padding: 0.5rem 0;">
+          <strong style="font-size: 0.8rem; color: var(--color-text-secondary); width: 100%;">Показывать на:</strong>
+          <label class="check">
+            <input type="checkbox" v-model="cta.ctaShowInToolbar" />
+            <span>Тулбар (вверху страницы)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" v-model="cta.ctaShowInBanner" />
+            <span>Баннерный блок (главная)</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" v-model="cta.ctaShowInCtaStrip" />
+            <span>Блок «Готовы записаться» (если включён)</span>
+          </label>
+        </div>
       </div>
     </section>
   </div>

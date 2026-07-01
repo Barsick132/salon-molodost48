@@ -5,11 +5,8 @@
  */
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
-import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
-const integrations = useIntegrationsStore();
 const site = useSiteStore();
 const router = useRouter();
 const route = useRoute();
@@ -41,7 +38,6 @@ async function navigate(target: string) {
 
 onMounted(() => {
   sync();
-  integrations.fetch();
   window.addEventListener('resize', sync);
 });
 onUnmounted(() => window.removeEventListener('resize', sync));
@@ -68,9 +64,13 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
         </a>
       </nav>
       <div class="spacer" />
-      <div v-if="!isMobile" class="cta">
-        <DikidiBookingButton size="sm" />
-      </div>
+      <a
+        v-if="!isMobile && site.settings.cta.showInToolbar"
+        :href="site.settings.cta.url"
+        target="_blank"
+        rel="noopener"
+        class="btn btn--primary btn--sm cta"
+      >{{ site.settings.cta.label }}</a>
       <button
         v-if="isMobile"
         class="burger"
@@ -100,7 +100,14 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
           >{{ link.label }}</a>
         </nav>
         <div class="mobile-menu__cta">
-          <DikidiBookingButton variant="primary" size="md" block @click="menuOpen = false" />
+          <a
+            v-if="site.settings.cta.showInToolbar"
+            :href="site.settings.cta.url"
+            target="_blank"
+            rel="noopener"
+            class="btn btn--primary btn--md btn--block"
+            @click="menuOpen = false"
+          >{{ site.settings.cta.label }}</a>
         </div>
       </div>
     </Transition>
@@ -160,7 +167,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
 }
 .nav-desktop a:hover { color: var(--color-accent); }
 .spacer { flex: 1; }
-.cta { display: flex; align-items: center; }
+
 
 .burger {
   width: 40px;

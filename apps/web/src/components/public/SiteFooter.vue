@@ -1,22 +1,24 @@
 <script setup lang="ts">
 /**
- * Public site footer — pulls phone + working hours + nav from /api/settings
- * so the site stays consistent with what the admin edits.
+ * Public site footer — phone, working-hours string, socials and the
+ * central booking CTA (read from site.settings.cta).
+ *
+ * Note: we keep phone numbers + email as a clean column without bullet
+ * markers (the <ul>/<li> list-style:none hack) — feels much less "busy"
+ * for a beauty-salon aesthetic. The CTA only renders when admin enabled
+ * the toolbar slot for it (showInCtaStrip / showInToolbar as decided in
+ * the design: footer uses the same primary CTA as the toolbar).
  */
 import { computed } from 'vue';
 import { useSiteStore } from '@/stores/site';
-import DikidiBookingButton from '@/components/public/DikidiBookingButton.vue';
 
 const site = useSiteStore();
-const phones = computed(() => site.settings.contact.phones);
-const hours = computed(() => site.settings.contact.workingHours ?? []);
-
-function todayLabel() {
-  return hours.value.find((h) => {
-    if (!h.open) return false;
-    return true;
-  });
-}
+const phones = computed(() => site.settings.contact.phones.filter(Boolean));
+const hours = computed(() => site.settings.contact.workingHours ?? '');
+const socials = computed(() => {
+  const raw = site.settings.contact.socials || {};
+  return Object.entries(raw).filter(([, url]) => !!url);
+});
 </script>
 
 <template>
@@ -31,31 +33,44 @@ function todayLabel() {
 
         <div class="footer-col">
           <h4>Контакты</h4>
-          <ul class="footer-list">
-            <li v-for="p in phones" :key="p">
-              <a :href="`tel:${p.replace(/[^\d+]/g, '')}`">{{ p }}</a>
-            </li>
-            <li v-if="site.settings.contact.email">
-              <a :href="`mailto:${site.settings.contact.email}`">{{ site.settings.contact.email }}</a>
-            </li>
-          </ul>
+          <div class="footer-list">
+            <a
+              v-for="p in phones"
+              :key="p"
+              :href="`tel:${p.replace(/[^\d+]/g, '')}`"
+              class="footer-link"
+            >{{ p }}</a>
+            <a
+              v-if="site.settings.contact.email"
+              :href="`mailto:${site.settings.contact.email}`"
+              class="footer-link"
+            >{{ site.settings.contact.email }}</a>
+          </div>
+          <div v-if="socials.length" class="footer-socials">
+            <a
+              v-for="[key, url] in socials"
+              :key="key"
+              :href="url"
+              target="_blank"
+              rel="noopener"
+              class="footer-social"
+              :aria-label="key"
+            >{{ key }}</a>
+          </div>
         </div>
 
         <div class="footer-col">
           <h4>Часы работы</h4>
-          <ul class="footer-list footer-list--tight">
-            <li v-for="h in hours" :key="h.day" class="hours-row">
-              <span class="hours-row__day">{{ h.label }}</span>
-              <span class="hours-row__time">
-                <template v-if="h.isDayOff || !h.open">вых.</template>
-                <template v-else>{{ h.open }}–{{ h.close }}</template>
-              </span>
-            </li>
-          </ul>
+          <p class="footer-hours">{{ hours }}</p>
         </div>
 
-        <div class="footer-col footer-col--cta">
-          <DikidiBookingButton variant="primary" size="md" block />
+        <div v-if="site.settings.cta.showInCtaStrip" class="footer-col footer-col--cta">
+          <a
+            :href="site.settings.cta.url"
+            target="_blank"
+            rel="noopener"
+            class="btn btn--primary btn--md btn--block"
+          >{{ site.settings.cta.label }}</a>
         </div>
       </div>
 
@@ -109,31 +124,44 @@ function todayLabel() {
   margin-bottom: 0.85rem;
 }
 .footer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  font-size: 0.9rem;
+  gap: 0.35rem;
+  font-size: 0.95rem;
 }
-.footer-list a {
+.footer-link {
   color: var(--color-text-primary);
   text-decoration: none;
   transition: color 0.15s ease;
 }
-.footer-list a:hover { color: var(--color-accent); }
-.footer-list--tight {
-  font-size: 0.825rem;
-  color: var(--color-text-secondary);
-}
-.hours-row {
+.footer-link:hover { color: var(--color-accent); }
+
+.footer-socials {
+  margin-top: 1.25rem;
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
-.hours-row__day { font-weight: 500; }
-.hours-row__time { color: var(--color-text-muted); }
+.footer-social {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.footer-social:hover { color: var(--color-accent); border-color: var(--color-accent); }
+
+.footer-hours {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-line;
+}
 
 .footer-col--cta {
   display: flex;

@@ -7,14 +7,12 @@
  * advantages block (when services page is enabled) — it's data, not content.
  */
 import { onMounted, ref, computed, useTemplateRef } from 'vue';
-import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
 import { useBlocksStore, type BlockBase, type HeroPayload, type StatItem, type AdvantageItem, type CtaStripPayload } from '@/stores/blocks';
 import { api } from '@/api/client';
 import { useHeroOverlay } from '@/composables/useHeroOverlay';
 
 const site = useSiteStore();
-const integrations = useIntegrationsStore();
 const blocksStore = useBlocksStore();
 
 const blocks = computed(() => blocksStore.blocks);
@@ -83,10 +81,10 @@ const advItems = (b: BlockBase): AdvantageItem[] => (b.type === 'advantages' && 
 const heroPayload = (b: BlockBase): HeroPayload => {
   if (b.type !== 'hero') {
     return {
-      eyebrow: '', titleBefore: '', titleAccent: '', titleAfter: '', title: '',
+      eyebrow: '', titleBefore: '', titleAccent: '', title: '',
       lead: '', primaryCtaLabel: '', primaryCtaHref: '',
       secondaryCtaLabel: '', secondaryCtaHref: '',
-      imageUrl: '', imageOverlay: 55, textAlign: 'center', showScrollCue: true,
+      imageUrl: '', textAlign: 'center', showScrollCue: true,
       showOverlay: true,
       textAlignHorizontal: 'center',
     };
@@ -122,13 +120,11 @@ function isKnownIcon(key: string): boolean {
   return ['tag', 'shield', 'clock', 'coffee', 'star', 'scissors', 'sparkles'].includes(key);
 }
 
-// Map CTA href → integration booking url if it's the magic "dikidi" placeholder
+// Map a hero block's CTA href → the actual link.
+// If admin left the href empty / '#', fall back to the central CTA URL
+// from site.settings.cta (single source of truth for booking).
 function resolveCta(href: string): string {
-  if (!href) return '#';
-  // Empty href or '#' → use dikidi widget url when enabled
-  if (href === '#' && integrations.dikidi.enabled && integrations.dikidi.widgetUrl) {
-    return integrations.dikidi.widgetUrl;
-  }
+  if (!href || href === '#') return site.settings.cta.url || '#';
   return href;
 }
 
@@ -213,7 +209,6 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
           <h1 class="hero__title" :style="{ color: heroTextColor }">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span>
             <span v-if="heroPayload(b).titleAccent" class="hero__title-accent">{{ heroPayload(b).titleAccent }}</span>
-            <span v-if="heroPayload(b).titleAfter" class="hero__title-after">{{ heroPayload(b).titleAfter }}</span>
             <span v-if="!heroPayload(b).titleBefore && !heroPayload(b).titleAccent && heroPayload(b).title" class="hero__title-before">{{ heroPayload(b).title }}</span>
           </h1>
           <p v-if="heroPayload(b).lead" class="hero__lead" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).lead }}</p>

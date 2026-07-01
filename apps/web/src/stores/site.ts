@@ -3,9 +3,11 @@
  *
  * Single source of truth for:
  *  - brand (name, tagline)
- *  - contact (address, phones, email, workingHours, socials)
- *  - map (provider, coords, iframeUrl, custom marker)
+ *  - contact (address, phones, email, workingHoursText, socials)
+ *  - map (provider, iframeUrl, zoom, hidden)
+ *  - cta (label, url, showIn*)
  *  - page & section visibility flags
+ *  - seo meta
  *
  * Loaded once on app boot from PublicLayout. Cached for ~60s at the API.
  */
@@ -19,27 +21,25 @@ export interface SiteContact {
   fullAddress: string;
   phones: string[];
   email: string;
-  workingHours: { day: string; label: string; open: string; close: string; isDayOff: boolean }[];
+  /** Free-form working-hours text, e.g. "пн-пт 10:00–20:00, сб-вс выходной". */
+  workingHours: string;
   socials: Record<string, string>;
 }
 export interface SiteMap {
-  provider: 'yandex' | 'google' | 'osm' | 'custom-iframe';
+  provider: 'yandex' | 'custom' | 'hidden';
   iframeUrl: string | null;
-  markerLat: number | null;
-  markerLng: number | null;
   zoom: number;
-  customMarkerUrl: string | null;
-  routeStartHint: string;
+  hidden: boolean;
+}
+export interface SiteCta {
+  label: string;
+  url: string;
+  showInToolbar: boolean;
+  showInBanner: boolean;
+  showInCtaStrip: boolean;
 }
 export interface SiteVisibility {
   servicesEnabled: boolean;
-  mastersEnabled: boolean;
-  galleryEnabled: boolean;
-  promotionsEnabled: boolean;
-  reviewsEnabled: boolean;
-  vacanciesEnabled: boolean;
-  faqEnabled: boolean;
-  contactsEnabled: boolean;
   homeServicesSectionEnabled: boolean;
   servicesInNavEnabled: boolean;
 }
@@ -48,6 +48,7 @@ export interface SiteSettings {
   brand: { name: string; tagline: string };
   contact: SiteContact;
   map: SiteMap;
+  cta: SiteCta;
   pages: SiteVisibility;
   seo: { title: string; description: string };
   accentColor: string;
@@ -63,27 +64,24 @@ const DEFAULTS: SiteSettings = {
     fullAddress: '',
     phones: [],
     email: '',
-    workingHours: [],
+    workingHours: 'пн-пт 10:00–20:00, сб-вс выходной',
     socials: {},
   },
   map: {
     provider: 'yandex',
     iframeUrl: null,
-    markerLat: null,
-    markerLng: null,
     zoom: 15,
-    customMarkerUrl: null,
-    routeStartHint: 'Ваш адрес или точка на карте',
+    hidden: false,
+  },
+  cta: {
+    label: 'Записаться онлайн',
+    url: 'https://dikidi.ru/#widget=212727',
+    showInToolbar: true,
+    showInBanner: true,
+    showInCtaStrip: true,
   },
   pages: {
     servicesEnabled: true,
-    mastersEnabled: true,
-    galleryEnabled: true,
-    promotionsEnabled: true,
-    reviewsEnabled: true,
-    vacanciesEnabled: true,
-    faqEnabled: true,
-    contactsEnabled: true,
     homeServicesSectionEnabled: true,
     servicesInNavEnabled: true,
   },

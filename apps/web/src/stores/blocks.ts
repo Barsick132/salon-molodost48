@@ -22,8 +22,7 @@ export interface HeroPayload {
   eyebrow: string;
   titleBefore: string;
   titleAccent: string;
-  titleAfter: string;
-  /** Legacy single-string title (used when the new fields are empty). */
+  /** Legacy single-string title (used when titleBefore/titleAccent are empty). */
   title: string;
   lead: string;
   primaryCtaLabel: string;
@@ -31,7 +30,6 @@ export interface HeroPayload {
   secondaryCtaLabel: string;
   secondaryCtaHref: string;
   imageUrl: string;
-  imageOverlay: number;
   textAlign: 'top' | 'center' | 'bottom';
   textAlignHorizontal: 'left' | 'center' | 'right';
   showScrollCue: boolean;

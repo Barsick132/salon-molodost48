@@ -12,7 +12,7 @@ import { computed, ref } from 'vue';
 import { useSiteStore } from '@/stores/site';
 
 const site = useSiteStore();
-const visible = computed(() => site.settings.loaded && site.settings.pages.contactsEnabled);
+const visible = computed(() => site.settings.loaded);
 
 const showRouteModal = ref(false);
 const startPoint = ref('');
@@ -39,17 +39,12 @@ function socialIcon(key: string): string {
 
 const mapIframeSrc = computed(() => {
   const m = site.settings.map;
-  if (!m) return '';
-  if (m.iframeUrl) return m.iframeUrl;
-  if (m.markerLat == null || m.markerLng == null) return '';
-
-  // Yandex "Map Widget v1" — no API key required, free.
-  const lat = m.markerLat;
-  const lng = m.markerLng;
+  if (!m || m.hidden) return '';
+  if (m.provider === 'custom') return m.iframeUrl || '';
+  // yandex (default): free map-widget by address query
+  const q = encodeURIComponent(site.settings.contact.address || site.settings.contact.fullAddress || '');
   const z = m.zoom ?? 15;
-  const label = encodeURIComponent(site.settings.contact.address || '');
-  // `pt=` adds a marker; `pm2bll` makes it look like a stylized pin
-  return `https://yandex.ru/map-widget/v1/?ll=${lng},${lat}&z=${z}&pt=${lng},${lat},pm2bll~${label}`;
+  return `https://yandex.ru/map-widget/v1/?text=${q}&z=${z}`;
 });
 
 function openRouteModal() {
@@ -58,20 +53,20 @@ function openRouteModal() {
 }
 
 function goToRoute() {
-  const m = site.settings.map;
+  // Yandex Routes URL: 'routes' mode + rtext=from~to. We pass the
+  // address as both the destination and the search query — Yandex
+  // resolves the address to a pin automatically.
   const addr = site.settings.contact.address || '';
-  if (m.markerLat != null && m.markerLng != null) {
-    // Yandex Routes URL — `rtext` is "from~to", supports an empty point
-    const url = new URL('https://yandex.ru/maps/');
-    url.searchParams.set('mode', 'routes');
-    url.searchParams.set('rtt', 'auto');
-    if (startPoint.value.trim()) url.searchParams.set('rtext', `${startPoint.value}~${addr}`);
-    else url.searchParams.set('rtext', `~${addr}`);
-    window.open(url.toString(), '_blank', 'noopener');
+  const url = new URL('https://yandex.ru/maps/');
+  url.searchParams.set('mode', 'routes');
+  url.searchParams.set('rtt', 'auto');
+  if (startPoint.value.trim()) {
+    url.searchParams.set('rtext', `${startPoint.value}~${addr}`);
   } else {
-    // fall back to plain map search
-    window.open(`https://yandex.ru/maps/?text=${encodeURIComponent(addr)}`, '_blank', 'noopener');
+    url.searchParams.set('rtext', `~${addr}`);
   }
+  url.searchParams.set('text', addr);
+  window.open(url.toString(), '_blank', 'noopener');
   showRouteModal.value = false;
 }
 
@@ -136,21 +131,9 @@ function order() { return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; }
               </a>
             </div>
 
-            <div v-if="site.settings.contact.workingHours?.length" class="block">
+            <div v-if="site.settings.contact.workingHours" class="block">
               <div class="block__label">Часы работы</div>
-              <ul class="hours">
-                <li
-                  v-for="d in site.settings.contact.workingHours"
-                  :key="d.day"
-                  :class="['hours-row', { 'hours-row--today': isToday(d), 'hours-row--off': d.isDayOff }]"
-                >
-                  <span class="hours-row__day">{{ d.label }}</span>
-                  <span class="hours-row__time">
-                    <template v-if="d.isDayOff || !d.open">выходной</template>
-                    <template v-else>{{ d.open }} — {{ d.close }}</template>
-                  </span>
-                </li>
-              </ul>
+              <p class="working-hours">{{ site.settings.contact.workingHours }}</p>
             </div>
 
             <div v-if="Object.keys(site.settings.contact.socials || {}).length" class="block">
@@ -192,7 +175,7 @@ function order() { return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; }
                 referrerpolicy="no-referrer-when-downgrade"
                 title="Карта проезда"
               />
-              <img v-if="site.settings.map.customMarkerUrl" :src="site.settings.map.customMarkerUrl" alt="" class="map-custom-marker" aria-hidden="true" />
+
             </div>
             <div v-else class="map-placeholder">
               <p>Адрес ещё не добавлен. Заполните раздел «Контакты» в админке.</p>
@@ -218,7 +201,7 @@ function order() { return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; }
                 <input
                   v-model="startPoint"
                   type="text"
-                  :placeholder="site.settings.map.routeStartHint || 'г. Липецк, ул. ...'"
+                  placeholder="г. Липецк, ул. Пушкина, 4"
                   class="field__input"
                   autofocus
                   @keydown.enter="goToRoute"

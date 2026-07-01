@@ -40,7 +40,6 @@ function emptyHero(): HeroPayload {
     eyebrow: '',
     titleBefore: '',
     titleAccent: '',
-    titleAfter: '',
     title: '',
     lead: '',
     primaryCtaLabel: 'Записаться',
@@ -48,7 +47,6 @@ function emptyHero(): HeroPayload {
     secondaryCtaLabel: '',
     secondaryCtaHref: '',
     imageUrl: '',
-    imageOverlay: 55,
     textAlign: 'center',
     textAlignHorizontal: 'center',
     showScrollCue: true,
@@ -88,7 +86,7 @@ async function uploadHeroImage() {
 const sortedBlocks = computed(() => [...store.blocks].sort((a, b) => a.order - b.order));
 
 const TYPE_LABEL: Record<BlockType, string> = {
-  hero: 'Hero',
+  hero: 'Баннерный блок',
   stats: 'Статистика',
   advantages: 'Преимущества',
   'cta-strip': 'CTA-полоса',
@@ -247,7 +245,6 @@ onMounted(store.fetchAdmin);
       </div>
       <div class="page-actions">
         <button class="btn" @click="resetDefaults">Сбросить к дефолтам</button>
-        <button class="btn btn--primary" @click="openCreate">+ Добавить блок</button>
       </div>
     </header>
 
@@ -255,7 +252,7 @@ onMounted(store.fetchAdmin);
 
     <div v-if="store.loading" class="alert">Загружаем…</div>
     <div v-else-if="!sortedBlocks.length" class="alert">
-      Блоков пока нет. Нажмите «Сбросить к дефолтам» или «+ Добавить блок».
+      Блоков пока нет. Нажмите «Сбросить к дефолтам».
     </div>
 
     <ul v-else class="block-list">
@@ -325,10 +322,6 @@ onMounted(store.fetchAdmin);
 
                 <div class="row row--3">
                   <label class="field">
-                    <span class="field__label">Затемнение (0…100%)</span>
-                    <input v-model.number="heroForm.imageOverlay" type="number" min="0" max="100" class="field__input" />
-                  </label>
-                  <label class="field">
                     <span class="field__label">Расположение по вертикали</span>
                     <select v-model="heroForm.textAlign" class="field__input">
                       <option value="top">Сверху</option>
@@ -376,10 +369,6 @@ onMounted(store.fetchAdmin);
                     <span class="field__label">Заголовок — акцент</span>
                     <input v-model="heroForm.titleAccent" class="field__input" placeholder="заботы о себе" />
                     <span class="field__hint">отображается italic + красным градиентом</span>
-                  </label>
-                  <label class="field">
-                    <span class="field__label">Заголовок — часть 3</span>
-                    <input v-model="heroForm.titleAfter" class="field__input" placeholder="." />
                   </label>
                 </div>
 

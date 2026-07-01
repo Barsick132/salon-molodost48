@@ -36,13 +36,13 @@ const ItemValue = z.object({
 
 const Hero = z.object({
   eyebrow: z.string().max(80).default(''),
-  // Headline is split into three pieces so the editor can style the middle
-  // one as an accent (different color, italic, gradient, etc.). For simple
-  // cases, leave accent empty and just fill titleBefore / titleAfter.
+  // Headline is split into two pieces so the editor can style the second
+  // one as an accent (different color, italic, gradient, etc.). For
+  // simple cases, leave accent empty and just fill titleBefore.
+  // Legacy single-string 'title' is still accepted and merged with
+  // titleBefore if titleBefore is empty.
   titleBefore: z.string().max(120).default(''),
   titleAccent:  z.string().max(120).default(''),
-  titleAfter:   z.string().max(120).default(''),
-  // Legacy single-string title (kept for back-compat with older records).
   title: z.string().max(300).default(''),
   lead: z.string().max(500).default(''),
   primaryCtaLabel: z.string().max(40).default('Записаться'),
@@ -50,9 +50,6 @@ const Hero = z.object({
   secondaryCtaLabel: z.string().max(40).default(''),
   secondaryCtaHref: z.string().max(500).default(''),
   imageUrl: z.string().max(1000).default(''),
-  // Overlay opacity (0..100) over the image so the foreground text stays
-  // legible on lighter photos. Defaults to 55 (darken ~55%).
-  imageOverlay: z.number().int().min(0).max(100).default(55),
   // Optional vertical anchor for the foreground block:
   //   'top' / 'center' / 'bottom'
   textAlign: z.enum(['top', 'center', 'bottom']).default('center'),
@@ -113,7 +110,6 @@ export const DEFAULT_BLOCKS: Array<{
       eyebrow: 'Салон красоты в Липецке · с 2013 года',
       titleBefore: 'Красота — это ритуал',
       titleAccent: 'заботы о себе',
-      titleAfter: '.',
       title: '',
       lead: 'Запишитесь онлайн, выберите мастера и удобное время. Мы рядом, в самом центре.',
       primaryCtaLabel: 'Записаться онлайн',
@@ -121,7 +117,6 @@ export const DEFAULT_BLOCKS: Array<{
       secondaryCtaLabel: 'Узнать цены',
       secondaryCtaHref: '/services',
       imageUrl: '/media/hero-default.jpg',
-      imageOverlay: 55,
       textAlign: 'center',
       textAlignHorizontal: 'center',
       showScrollCue: true,

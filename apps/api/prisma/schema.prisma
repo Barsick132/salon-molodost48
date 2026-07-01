@@ -25,45 +25,49 @@ model SiteSettings {
   logoMediaId    String?
   faviconMediaId String?
 
-  address      String   @default("г. Липецк, ул. Пушкина 4, пом. 6")
-  mapEmbedUrl  String   @default("")
-  phones       String[] @default(["8 (904) 219-19-99", "8 (474) 271-93-80"])
-  email        String   @default("support@molodost48.ru")
-  workingHours Json     @default("[]")
-  socials      Json     @default("{}")
-  bookingUrl   String   @default("https://dikidi.ru/1475188")
+  address String  @default("г. Липецк, ул. Пушкина 4, пом. 6")
+  phones  String[] @default(["8 (904) 219-19-99", "8 (474) 271-93-80"])
+  email   String  @default("support@molodost48.ru")
+  // Single-line working hours, free-form text. Examples:
+  //   "пн-пт 10:00–20:00, сб-вс выходной"
+  //   "Ежедневно 10:00–20:00"
+  //   "пн-сб 09:00–21:00, вс — выходной"
+  // The admin form shows a textarea with these examples as placeholders.
+  workingHoursText String @default("пн-пт 10:00–20:00, сб-вс выходной")
+  socials          Json   @default("{}")
 
   // ----- Map / location -----
-  // Provider: "yandex" | "google" | "osm" | "custom-iframe"
-  mapProvider        String @default("yandex")
-  // Human-readable landmark address (defaults to Lipetsk center)
-  shortAddress       String @default("г. Липецк, ул. Пушкина, 4")
-  // Optional iframe URL — overrides mapProvider marker + coord logic
-  mapIframeUrl       String @default("")
-  // Coords are used when no iframe is set or for "open in maps" deep links
-  mapMarkerLat       Float?
-  mapMarkerLng       Float?
-  mapZoom            Int    @default(15)
-  // Optional custom marker icon — link to image already uploaded to /media
-  mapCustomMarkerUrl String @default("")
-  // How-to-get modal: starting point placeholder
-  mapRouteStartHint  String @default("Ваш адрес или точка на карте")
+  // mapProvider: "yandex" (default — iframe generator by address) | "custom" | "hidden"
+  mapProvider  String  @default("yandex")
+  // iframe URL — used when mapProvider = "custom", overrides the
+  // Yandex generator. Empty when mapProvider = "yandex".
+  mapIframeUrl String  @default("")
+  // Zoom for the auto-generated Yandex iframe.
+  mapZoom      Int     @default(15)
+  // When true, the map block is not rendered on the public contacts
+  // page at all (the section just shows the address as text).
+  mapHidden    Boolean @default(false)
+
+  // ----- Centralised "Записаться онлайн" CTA -----
+  // One source of truth for the booking button. The admin CtaPage
+  // edits these. Public surfaces (toolbar, banner, cta-strip) opt
+  // in via the showIn* flags below.
+  ctaLabel          String  @default("Записаться онлайн")
+  ctaUrl            String  @default("https://dikidi.ru/#widget=212727")
+  ctaShowInToolbar  Boolean @default(true)
+  ctaShowInBanner   Boolean @default(true)
+  ctaShowInCtaStrip Boolean @default(true)
 
   // ----- Page / section visibility -----
+  // The only pages/sections we currently render. Future pages
+  // (gallery, masters, reviews, etc.) are not built and have no
+  // navigation; their flags were removed.
   servicesPageEnabled        Boolean @default(true)
-  mastersPageEnabled         Boolean @default(true)
-  galleryPageEnabled         Boolean @default(true)
-  promotionsPageEnabled      Boolean @default(true)
-  reviewsPageEnabled         Boolean @default(true)
-  vacanciesPageEnabled       Boolean @default(true)
-  faqPageEnabled             Boolean @default(true)
-  contactsPageEnabled        Boolean @default(true)
   homeServicesSectionEnabled Boolean @default(true)
-  homeMastersSectionEnabled  Boolean @default(true)
   servicesInNavEnabled       Boolean @default(true)
 
   seoTitle       String  @default("Молодость — салон красоты в Липецке")
-  seoDescription String  @default("")
+  seoDescription String  @default("Салон красоты бизнес-класса в Липецке с 2013 года. Стрижки, окрашивание, уход, маникюр, педикюр, косметология. Запись онлайн через Dikidi.")
   seoOgImageId   String?
   robotsTxt      String  @default("User-agent: *\nAllow: /")
 
@@ -71,8 +75,8 @@ model SiteSettings {
   fontFamily           String  @default("Inter")
   enableStructuredData Boolean @default(true)
 
-  logoUrl              String  @default("")
-  faviconUrl           String  @default("")
+  logoUrl    String @default("")
+  faviconUrl String @default("")
 
   updatedAt DateTime @updatedAt
 }
@@ -96,7 +100,7 @@ model NavItem {
 
 model Block {
   id        String   @id @default(cuid())
-  type      String // hero | about | services | masters | promotions | gallery | rooms | reviews | faq | vacancies | contacts
+  type      String // banner (was hero) | stats | advantages | cta-strip
   enabled   Boolean  @default(true)
   order     Int      @default(0)
   payload   Json     @default("{}")
@@ -137,7 +141,7 @@ model Service {
   isPopular       Boolean         @default(false)
   isActive        Boolean         @default(true)
   order           Int             @default(0)
-  externalId      String? // for Yandex import de-dup
+  externalId      String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -147,7 +151,7 @@ model Service {
 }
 
 // ============================================================
-// Masters
+// Masters (table kept — feature deferred)
 // ============================================================
 
 model Master {
@@ -168,7 +172,7 @@ model Master {
 }
 
 // ============================================================
-// Promotions
+// Promotions (table kept — feature deferred)
 // ============================================================
 
 model Promotion {
@@ -190,7 +194,7 @@ model Promotion {
 }
 
 // ============================================================
-// Gallery
+// Gallery (table kept — feature deferred)
 // ============================================================
 
 model GalleryCategory {
@@ -217,7 +221,7 @@ model GalleryItem {
 }
 
 // ============================================================
-// Rooms / interior
+// Rooms (table kept — feature deferred)
 // ============================================================
 
 model Room {
@@ -234,7 +238,7 @@ model Room {
 }
 
 // ============================================================
-// Reviews
+// Reviews (table kept — feature deferred)
 // ============================================================
 
 model Review {
@@ -245,7 +249,7 @@ model Review {
   source        String   @default("")
   avatarMediaId String?
   publishedAt   DateTime @default(now())
-  isApproved    Boolean  @default(false)
+  isApproved    Boolean   @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -253,7 +257,7 @@ model Review {
 }
 
 // ============================================================
-// FAQ
+// FAQ (table kept — feature deferred)
 // ============================================================
 
 model Faq {
@@ -270,7 +274,7 @@ model Faq {
 }
 
 // ============================================================
-// Vacancies
+// Vacancies (table kept — feature deferred)
 // ============================================================
 
 model Vacancy {
@@ -316,7 +320,7 @@ model Media {
   width        Int?
   height       Int?
   alt          String   @default("")
-  storagePath  String // relative to MEDIA_ROOT
+  storagePath  String
   createdAt    DateTime @default(now())
 
   @@index([createdAt])
@@ -358,7 +362,7 @@ model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
   user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique // sha256 hex of the random token sent by email
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
   ipAddress String?
@@ -382,17 +386,17 @@ model EmailChangeRequest {
 }
 
 // ============================================================
-// Integrations (Dikidi, maps, messengers, etc.)
+// Integrations (kept for future use, not surfaced in admin UI)
 // ============================================================
 
 model IntegrationConfig {
-  id             String    @id // e.g. "dikidi", "yandex-maps"
-  type           String // "booking" | "maps" | "messenger" | "email"
+  id             String    @id
+  type           String
   enabled        Boolean   @default(false)
-  config         Json      @default("{}") // public-visible config
-  credentials    Json? // sensitive (API tokens) — should be encrypted in prod
+  config         Json      @default("{}")
+  credentials    Json?
   lastSyncAt     DateTime?
-  lastSyncStatus String? // "ok" | "error: <message>"
+  lastSyncStatus String?
   updatedAt      DateTime  @updatedAt
   updatedBy      String?
 
@@ -402,8 +406,8 @@ model IntegrationConfig {
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String // e.g. "service.update"
-  entity    String // e.g. "Service"
+  action    String
+  entity    String
   entityId  String?
   diff      Json?
   ipAddress String?

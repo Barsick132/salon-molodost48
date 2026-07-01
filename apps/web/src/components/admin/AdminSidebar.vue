@@ -13,7 +13,6 @@ const items = [
   { to: '/admin/services', label: 'Услуги и цены', icon: '✂' },
   { to: '/admin/blocks', label: 'Блоки лендинга', icon: '◧' },
   { to: '/admin/settings', label: 'Настройки', icon: '⚙' },
-  { to: '/admin/integrations', label: 'Интеграции', icon: '↗' },
 ];
 </script>
 

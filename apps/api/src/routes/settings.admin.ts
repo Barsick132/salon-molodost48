@@ -1,11 +1,12 @@
 /**
  * Admin site settings — full row edit.
  *
- *   GET   /api/admin/site                       — all fields (incl. legacy ones)
- *   PUT   /api/admin/site/contact                — phones, address, workingHours, socials, email, full address
- *   PUT   /api/admin/site/map                    — provider, coords, zoom, iframe, custom marker
- *   PUT   /api/admin/site/visibility             — page + section toggles
+ *   GET   /api/admin/site                       — all fields
+ *   PUT   /api/admin/site/contact                — phones, address, workingHoursText, socials, email
+ *   PUT   /api/admin/site/map                    — provider, iframeUrl, zoom, hidden
+ *   PUT   /api/admin/site/visibility             — servicesPageEnabled, homeServicesSectionEnabled, servicesInNavEnabled
  *   PUT   /api/admin/site/brand                  — name, tagline, seo, accent
+ *   PUT   /api/admin/site/cta                    — booking button label, url, showIn* flags
  *
  * Every mutation logs an AuditLog entry.
  */
@@ -18,45 +19,37 @@ function js(s: z.ZodType): unknown {
   return zodToJsonSchema(s, { target: 'jsonSchema7' });
 }
 
-const DayHours = z.object({
-  day: z.string(),         // 'mon' | 'tue' | ... | 'sun'
-  label: z.string(),       // 'Пн' | 'Понедельник'
-  open: z.string(),        // '09:00' or ''
-  close: z.string(),       // '21:00' or ''
-  isDayOff: z.boolean().default(false),
-});
-
 const Contact = z.object({
   shortAddress: z.string().max(300).optional(),
   fullAddress:  z.string().max(500).optional(),
   phones:       z.array(z.string().max(40)).max(10).optional(),
   email:        z.string().email().max(160).optional(),
-  workingHours: z.array(DayHours).max(7).optional(),
+  // Free-form working-hours text. Examples shown as placeholders in
+  // the admin form:
+  //   "пн-пт 10:00–20:00, сб-вс выходной"
+  //   "Ежедневно 10:00–20:00"
+  workingHoursText: z.string().max(500).optional(),
   socials:      z.record(z.string(), z.string().url().or(z.literal(''))).optional(),
 });
 
+// Map config: only three things matter.
+//   - provider: "yandex" (auto iframe by address) | "custom" (use iframeUrl) | "hidden"
+//   - iframeUrl: required for "custom", ignored otherwise
+//   - zoom: Yandex iframe zoom 1..21
+//   - hidden: when true, no map is rendered on the public page at all
 const Map_ = z.object({
-  provider: z.enum(['yandex', 'google', 'osm', 'custom-iframe']).optional(),
+  provider:  z.enum(['yandex', 'custom', 'hidden']).optional(),
   iframeUrl: z.string().max(2000).optional(),
-  markerLat: z.number().min(-90).max(90).nullable().optional(),
-  markerLng: z.number().min(-180).max(180).nullable().optional(),
   zoom:      z.number().int().min(1).max(21).optional(),
-  customMarkerUrl: z.string().max(2000).optional(),
-  routeStartHint:  z.string().max(200).optional(),
+  hidden:    z.boolean().optional(),
 });
 
+// Only flags we still need: services module on/off, services nav link,
+// services preview block on home.
 const Visibility = z.object({
-  servicesPageEnabled:          z.boolean().optional(),
-  mastersPageEnabled:          z.boolean().optional(),
-  galleryPageEnabled:          z.boolean().optional(),
-  promotionsPageEnabled:       z.boolean().optional(),
-  reviewsPageEnabled:          z.boolean().optional(),
-  vacanciesPageEnabled:        z.boolean().optional(),
-  faqPageEnabled:              z.boolean().optional(),
-  contactsPageEnabled:         z.boolean().optional(),
-  homeServicesSectionEnabled:  z.boolean().optional(),
-  homeMastersSectionEnabled:   z.boolean().optional(),
-  servicesInNavEnabled:        z.boolean().optional(),
+  servicesPageEnabled:        z.boolean().optional(),
+  homeServicesSectionEnabled: z.boolean().optional(),
+  servicesInNavEnabled:       z.boolean().optional(),
 });
 
 const Brand = z.object({
@@ -67,6 +60,14 @@ const Brand = z.object({
   accentColor:  z.string().regex(/^#[0-9A-Fa-f]{3,8}$/).optional(),
   logoUrl:      z.string().max(500).optional(),
   faviconUrl:   z.string().max(500).optional(),
+});
+
+const Cta = z.object({
+  ctaLabel:          z.string().max(60).optional(),
+  ctaUrl:            z.string().max(500).optional(),
+  ctaShowInToolbar:  z.boolean().optional(),
+  ctaShowInBanner:   z.boolean().optional(),
+  ctaShowInCtaStrip: z.boolean().optional(),
 });
 
 async function getOrCreate(app: any) {
@@ -108,12 +109,12 @@ const plugin: FastifyPluginAsync = async (app) => {
     const updated = await app.prisma.siteSettings.update({
       where: { id: 'singleton' },
       data: {
-        ...(patch.shortAddress  !== undefined ? { shortAddress: patch.shortAddress } : {}),
-        ...(patch.fullAddress   !== undefined ? { address: patch.fullAddress } : {}),
-        ...(patch.phones        !== undefined ? { phones: patch.phones } : {}),
-        ...(patch.email         !== undefined ? { email: patch.email } : {}),
-        ...(patch.workingHours  !== undefined ? { workingHours: patch.workingHours } : {}),
-        ...(patch.socials       !== undefined ? { socials: patch.socials } : {}),
+        ...(patch.shortAddress     !== undefined ? { shortAddress: patch.shortAddress } : {}),
+        ...(patch.fullAddress      !== undefined ? { address: patch.fullAddress } : {}),
+        ...(patch.phones           !== undefined ? { phones: patch.phones } : {}),
+        ...(patch.email            !== undefined ? { email: patch.email } : {}),
+        ...(patch.workingHoursText !== undefined ? { workingHoursText: patch.workingHoursText } : {}),
+        ...(patch.socials          !== undefined ? { socials: patch.socials } : {}),
       },
     });
     await audit(app, req, 'site.contact.update', patch);
@@ -122,7 +123,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       fullAddress: updated.address,
       phones: updated.phones,
       email: updated.email,
-      workingHours: updated.workingHours,
+      workingHoursText: updated.workingHoursText,
       socials: updated.socials,
     }};
   });
@@ -135,24 +136,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     const updated = await app.prisma.siteSettings.update({
       where: { id: 'singleton' },
       data: {
-        ...(patch.provider         !== undefined ? { mapProvider: patch.provider } : {}),
-        ...(patch.iframeUrl        !== undefined ? { mapIframeUrl: patch.iframeUrl } : {}),
-        ...(patch.markerLat        !== undefined ? { mapMarkerLat: patch.markerLat } : {}),
-        ...(patch.markerLng        !== undefined ? { mapMarkerLng: patch.markerLng } : {}),
-        ...(patch.zoom             !== undefined ? { mapZoom: patch.zoom } : {}),
-        ...(patch.customMarkerUrl  !== undefined ? { mapCustomMarkerUrl: patch.customMarkerUrl } : {}),
-        ...(patch.routeStartHint   !== undefined ? { mapRouteStartHint: patch.routeStartHint } : {}),
+        ...(patch.provider  !== undefined ? { mapProvider: patch.provider } : {}),
+        ...(patch.iframeUrl !== undefined ? { mapIframeUrl: patch.iframeUrl } : {}),
+        ...(patch.zoom      !== undefined ? { mapZoom: patch.zoom } : {}),
+        ...(patch.hidden    !== undefined ? { mapHidden: patch.hidden } : {}),
       },
     });
     await audit(app, req, 'site.map.update', patch);
     return { ok: true, map: {
       provider: updated.mapProvider,
       iframeUrl: updated.mapIframeUrl,
-      markerLat: updated.mapMarkerLat,
-      markerLng: updated.mapMarkerLng,
       zoom: updated.mapZoom,
-      customMarkerUrl: updated.mapCustomMarkerUrl,
-      routeStartHint: updated.mapRouteStartHint,
+      hidden: updated.mapHidden,
     }};
   });
 
@@ -179,6 +174,19 @@ const plugin: FastifyPluginAsync = async (app) => {
       data: { ...patch },
     });
     await audit(app, req, 'site.brand.update', patch);
+    return { ok: true };
+  });
+
+  // PUT cta
+  app.put('/site/cta', {
+    schema: { body: js(Cta) },
+  }, async (req) => {
+    const patch = req.body as z.infer<typeof Cta>;
+    await app.prisma.siteSettings.update({
+      where: { id: 'singleton' },
+      data: { ...patch },
+    });
+    await audit(app, req, 'site.cta.update', patch);
     return { ok: true };
   });
 };
