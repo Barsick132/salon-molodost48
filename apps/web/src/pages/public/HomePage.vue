@@ -457,7 +457,13 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
    is controlled via align-self on the .hero__inner child. */
 .hero--h-left   .hero__inner {
   align-self: flex-start;
-  margin-left: max(1.5rem, calc((100vw - 1280px) / 2 + 1.5rem));
+  /* Side gutter scales with the viewport but caps at 7rem so the
+     column doesn't drift inboard on ultrawide monitors. The old
+     formula (100vw - 1280px)/2 + 1.5rem pushed the column over
+     340px from the left edge on a 1920 screen, which made the
+     editorial layout feel orphaned. 6vw maxes at ~115px on
+     1920, ~150px on 2560, with a 1.5rem floor for tiny screens. */
+  margin-left: clamp(1.5rem, 6vw, 7rem);
   margin-right: 1.5rem;
   max-width: 600px;
   text-align: left;
@@ -471,7 +477,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 }
 .hero--h-right  .hero__inner {
   align-self: flex-end;
-  margin-right: max(1.5rem, calc((100vw - 1280px) / 2 + 1.5rem));
+  margin-right: clamp(1.5rem, 6vw, 7rem);
   margin-left: 1.5rem;
   max-width: 600px;
   text-align: right;
