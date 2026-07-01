@@ -366,19 +366,32 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
    to spread out). A decorative accent line marks the anchor edge
    so the eye reads the layout as 'intentionally placed', not just
    'roughly centered'. */
+/* Vertical anchor — on wide viewports the inner block fills half
+   the hero so the placement is visually unmistakable. The text
+   itself is centred *inside that block* (not glued to its top or
+   bottom edge), giving the editorial layouts a generous,
+   intentional feel. A decorative accent line marks the inner
+   edge of the block (top mode: line at the top of the block;
+   bottom mode: line at the bottom). On mobile / short viewports
+   the block collapses to a sensible min-height so we don't get
+   a giant empty block above the nav. */
 .hero--top {
   justify-content: flex-start;
-  padding-top: clamp(8rem, 14vh, 14rem);
-  padding-bottom: 4rem;
 }
 .hero--top .hero__inner {
   position: relative;
-  padding-top: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  min-height: 55vh;
+  padding: 5rem clamp(1.5rem, 6vw, 5rem);
+  padding-top: 6rem;
 }
 .hero--top .hero__inner::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: 4rem;
   left: 0;
   right: 0;
   height: 2px;
@@ -393,10 +406,11 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   justify-content: center;
 }
 .hero--center .hero__inner {
-  /* visually pin the center with a symmetric accent bracket above
-     and below the text block */
   position: relative;
-  padding: 2.5rem 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem 0;
 }
 .hero--center .hero__inner::before,
 .hero--center .hero__inner::after {
@@ -414,17 +428,21 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 .hero--bottom {
   justify-content: flex-end;
-  padding-top: 4rem;
-  padding-bottom: clamp(6rem, 12vh, 12rem);
 }
 .hero--bottom .hero__inner {
   position: relative;
-  padding-bottom: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  min-height: 55vh;
+  padding: 5rem clamp(1.5rem, 6vw, 5rem);
+  padding-bottom: 6rem;
 }
 .hero--bottom .hero__inner::after {
   content: '';
   position: absolute;
-  bottom: 0;
+  bottom: 4rem;
   left: 0;
   right: 0;
   height: 2px;
@@ -507,10 +525,15 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero__inner {
   position: relative;
   z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
-  max-width: 880px;
-  padding: 6rem 0 4rem;
   color: #fff;
+  /* max-width is set per horizontal mode (h-left/right: 600,
+     h-center: 880). No padding here — each vertical mode sets
+     its own so the block has consistent inner padding in every
+     layout. */
 }
 /* Vertical alignment tweaks only — horizontal alignment is handled
    by .hero--h-* rules above. */
