@@ -212,7 +212,12 @@ export function useHeroOverlay(
     const bottom = tone === 'dark' ? 0.85 : 0.78
     const top = tone === 'dark' ? 0.5 : 0.4
     style.value = [
-      `linear-gradient(0deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${bottom.toFixed(2)}) 100%)`,
+      // 0deg = bottom-to-top in CSS. 0% is the BOTTOM of the hero,
+      // 100% is the TOP. We want scrim dense at the bottom (CTAs)
+      // and transparent at the top (eyebrow sits over the photo).
+      `linear-gradient(0deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${bottom.toFixed(2)}) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 100%)`,
+      // 180deg = top-to-bottom. 0% is the TOP, fades to transparent
+      // by 30%. Holds the nav and eyebrow line.
       `linear-gradient(180deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${top.toFixed(2)}) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 30%)`,
     ].join(', ')
 
@@ -338,11 +343,10 @@ export function useHeroOverlay(
 
 function defaultStyle(): string {
   // Same simple 2-layer pattern as the sampled style, just in neutral
-  // black. Numbers are high so even when canvas/CORS fails, the user
-  // sees a clear readable scrim — not the previous 'looks like no
-  // overlay at all' state.
+  // black. 0deg = bottom-to-top: 0% at the bottom of the hero is
+  // dense, fading to transparent at the top.
   return [
-    'linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%)',
+    'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%)',
     'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%)',
   ].join(', ')
 }

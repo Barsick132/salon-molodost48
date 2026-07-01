@@ -392,7 +392,10 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
      sampled version from the composable will replace this once
      the image has been decoded and analysed. */
   background:
-    linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 100%),
+    /* 0deg = bottom-to-top: dense black at the bottom, transparent
+       at the top. The composable will replace this inline with the
+       photo's colour-tinted version once it samples the image. */
+    linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%);
   z-index: 1;
   pointer-events: none;
