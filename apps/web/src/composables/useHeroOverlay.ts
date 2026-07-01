@@ -46,7 +46,7 @@
  *   - Travis Horn: https://travishorn.com/responsive-scrim/
  */
 
-import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, watch, watchEffect, onUnmounted, type Ref } from 'vue'
 
 export type HeroOverlay = {
   style: Ref<string>
@@ -257,14 +257,46 @@ export function useHeroOverlay(
   }
 
   // ----- mount lifecycle -----
-  onMounted(() => {
-    setupObservers()
-    // Re-setup the text observer once refs are populated (template
-    // refs are filled after setup, so we may have missed the first
-    // mount).
-    if (refs?.text?.value && !textResizeObs) {
+  // watchEffect: reactively re-bind the text observer the moment the
+  // template ref becomes available. With useTemplateRef, the ref is
+  // filled *after* setup() returns, so onMounted may fire before the
+  // element exists — we kept missing it and ending up with the
+  // centre-20..80% fallback. watchEffect self-tracks and re-runs
+  // until the ref actually has a DOM node.
+  watchEffect(() => {
+    const hero = refs?.hero?.value
+    const text = refs?.text?.value
+
+    if (heroResizeObs) heroResizeObs.disconnect()
+    if (textResizeObs) textResizeObs.disconnect()
+    heroResizeObs = null
+    textResizeObs = null
+
+    if (typeof ResizeObserver === 'undefined') return
+    if (hero) {
+      heroResizeObs = new ResizeObserver(() => scheduleAnalyze())
+      heroResizeObs.observe(hero)
+    }
+    if (text) {
       textResizeObs = new ResizeObserver(() => scheduleAnalyze())
-      textResizeObs.observe(refs.text.value)
+      textResizeObs.observe(text)
+    }
+
+    // If we now have a text ref but the last sample used the fallback
+    // region (refs were null at sample time), re-analyse with the
+    // real bounding box. Threshold 0.02 = 2% of hero size.
+    if (text && lastSample.value) {
+      const region = getTextRegion()
+      if (region) {
+        const prev = lastSample.value.textRegion
+        const rectChanged =
+          !prev ||
+          Math.abs(prev.x0 - region.x0) > 0.02 ||
+          Math.abs(prev.y0 - region.y0) > 0.02 ||
+          Math.abs(prev.x1 - region.x1) > 0.02 ||
+          Math.abs(prev.y1 - region.y1) > 0.02
+        if (rectChanged && currentUrl) scheduleAnalyze()
+      }
     }
   })
 
