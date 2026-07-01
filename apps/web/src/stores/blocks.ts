@@ -33,6 +33,7 @@ export interface HeroPayload {
   imageUrl: string;
   imageOverlay: number;
   textAlign: 'top' | 'center' | 'bottom';
+  textAlignHorizontal: 'left' | 'center' | 'right';
   showScrollCue: boolean;
 }
 export interface StatItem { value: string; label: string; }

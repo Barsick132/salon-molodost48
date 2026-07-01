@@ -50,6 +50,7 @@ function emptyHero(): HeroPayload {
     imageUrl: '',
     imageOverlay: 55,
     textAlign: 'center',
+    textAlignHorizontal: 'center',
     showScrollCue: true,
   };
 }
@@ -327,11 +328,19 @@ onMounted(store.fetchAdmin);
                     <input v-model.number="heroForm.imageOverlay" type="number" min="0" max="100" class="field__input" />
                   </label>
                   <label class="field">
-                    <span class="field__label">Выравнивание текста</span>
+                    <span class="field__label">Расположение по вертикали</span>
                     <select v-model="heroForm.textAlign" class="field__input">
                       <option value="top">Сверху</option>
                       <option value="center">По центру</option>
                       <option value="bottom">Снизу</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Расположение по горизонтали</span>
+                    <select v-model="heroForm.textAlignHorizontal" class="field__input">
+                      <option value="left">Слева</option>
+                      <option value="center">По центру</option>
+                      <option value="right">Справа</option>
                     </select>
                   </label>
                   <label class="field">

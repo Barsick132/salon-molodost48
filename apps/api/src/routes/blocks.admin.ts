@@ -56,6 +56,9 @@ const Hero = z.object({
   // Optional vertical anchor for the foreground block:
   //   'top' / 'center' / 'bottom'
   textAlign: z.enum(['top', 'center', 'bottom']).default('center'),
+  // Optional horizontal anchor:
+  //   'left' / 'center' / 'right'
+  textAlignHorizontal: z.enum(['left', 'center', 'right']).default('center'),
   // Optional sticky-bottom scroll cue (the "↓" chevron)
   showScrollCue: z.boolean().default(true),
 });
@@ -115,6 +118,7 @@ export const DEFAULT_BLOCKS: Array<{
       imageUrl: '/media/hero-default.jpg',
       imageOverlay: 55,
       textAlign: 'center',
+      textAlignHorizontal: 'center',
       showScrollCue: true,
     },
   },

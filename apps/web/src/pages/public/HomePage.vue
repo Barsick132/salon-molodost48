@@ -87,6 +87,7 @@ const heroPayload = (b: BlockBase): HeroPayload => {
       lead: '', primaryCtaLabel: '', primaryCtaHref: '',
       secondaryCtaLabel: '', secondaryCtaHref: '',
       imageUrl: '', imageOverlay: 55, textAlign: 'center', showScrollCue: true,
+      textAlignHorizontal: 'center',
     };
   }
   return b.payload as unknown as HeroPayload;
@@ -193,7 +194,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value">
+      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
@@ -362,6 +363,12 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero--center { justify-content: center; }
 .hero--bottom { justify-content: flex-end; padding-bottom: 5rem; }
 
+/* Horizontal alignment. .hero is a flex column, so cross-axis (horizontal)
+   is controlled via align-self on the .hero__inner child. */
+.hero--h-left   .hero__inner { align-self: flex-start; text-align: left; margin: 0; }
+.hero--h-center .hero__inner { align-self: center; text-align: center; }
+.hero--h-right  .hero__inner { align-self: flex-end; text-align: right; margin: 0; }
+
 .hero__bg {
   position: absolute;
   inset: 0;
@@ -415,8 +422,9 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   padding: 6rem 0 4rem;
   color: #fff;
 }
-.hero--top .hero__inner { text-align: left; margin: 0 auto 0 0; }
-.hero--bottom .hero__inner { text-align: center; padding-bottom: 4rem; }
+/* Vertical alignment tweaks only — horizontal alignment is handled
+   by .hero--h-* rules above. */
+.hero--bottom .hero__inner { padding-bottom: 4rem; }
 
 .hero__eyebrow {
   display: inline-block;
