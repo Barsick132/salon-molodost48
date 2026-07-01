@@ -355,7 +355,11 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  /* Subject (woman's face + hair) sits in the upper-right third of the photo;
+     center-cropping shows empty wall on the left and crops the head on
+     tall viewports. Anchor to ~30% horizontally and ~25% vertically so the
+     face is always visible regardless of viewport aspect. */
+  object-position: 30% 25%;
   /* gentle zoom-in over 12s on first paint */
   animation: heroZoom 14s ease-out both;
 }
@@ -498,6 +502,15 @@ onMounted(async () => {
 @media (max-width: 700px) {
   .hero { min-height: 70vh; }
   .hero__inner { padding: 5rem 0 3rem; }
+  .hero__bg img { object-position: 50% 30%; }
+}
+@media (min-aspect-ratio: 16/9) {
+  /* Wide desktop monitors get the strongest upward crop so the head
+     isn't clipped against the top edge. */
+  .hero__bg img { object-position: 28% 22%; }
+}
+@media (min-aspect-ratio: 21/9) {
+  .hero__bg img { object-position: 24% 20%; }
 }
 
 /* ============ STATS ============ */
