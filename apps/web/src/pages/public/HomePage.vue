@@ -11,6 +11,7 @@ import { useIntegrationsStore } from '@/stores/integrations';
 import { useSiteStore } from '@/stores/site';
 import { useBlocksStore, type BlockBase, type HeroPayload, type StatItem, type AdvantageItem, type CtaStripPayload } from '@/stores/blocks';
 import { api } from '@/api/client';
+import { useHeroOverlay } from '@/composables/useHeroOverlay';
 
 const site = useSiteStore();
 const integrations = useIntegrationsStore();
@@ -172,6 +173,15 @@ onMounted(async () => {
     loadServices(),
   ]);
 });
+
+// ----- hero overlay: samples the photo and chooses a gradient + text tone -----
+const heroImageUrl = computed(() => {
+  const hero = blocks.value.find(isHero);
+  return hero ? heroPayload(hero).imageUrl ?? null : null;
+});
+const heroOverlay = useHeroOverlay(heroImageUrl);
+const heroOverlayStyle = computed(() => heroOverlay.style.value);
+const heroTextTone = computed(() => heroOverlay.textTone.value);
 </script>
 
 <template>
@@ -179,12 +189,15 @@ onMounted(async () => {
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]">
+      <section v-if="isHero(b)" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]" :data-text-tone="heroTextTone">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
             class="hero__bg-overlay"
-            :style="{ opacity: (heroPayload(b).imageOverlay ?? 55) / 100 }"
+            :style="{
+              opacity: (heroPayload(b).imageOverlay ?? 55) / 100,
+              backgroundImage: heroOverlayStyle,
+            }"
             aria-hidden="true"
           ></div>
         </div>
@@ -370,10 +383,28 @@ onMounted(async () => {
 .hero__bg-overlay {
   position: absolute;
   inset: 0;
+  /* background-image is set inline by useHeroOverlay, based on a sample
+     of the photo's text region. Fallback (no image yet / no JS) is the
+     static gradient below. */
   background:
     radial-gradient(ellipse at 50% 30%, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.7) 80%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.6) 100%);
   z-index: -1;
+  transition: opacity 0.3s ease, background 0.4s ease;
+}
+
+/* When useHeroOverlay decides the photo is bright (text region avgL > 0.65),
+   switch the headline and lead to a dark tone with a soft white text-shadow
+   so the title is still readable on a soft/airy photo. */
+.hero[data-text-tone="dark"] .hero__title-before,
+.hero[data-text-tone="dark"] .hero__title-after {
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.5);
+}
+.hero[data-text-tone="dark"] .hero__eyebrow,
+.hero[data-text-tone="dark"] .hero__lead {
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.4);
 }
 
 .hero__inner {
