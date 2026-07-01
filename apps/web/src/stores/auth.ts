@@ -15,10 +15,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, remember = false) {
     const res = await api<{ user: AdminUser }>('/admin/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: { email, password, remember },
     });
     user.value = res.user;
   }

@@ -36,15 +36,18 @@ declare module 'fastify' {
       issueSession(
         reply: import('fastify').FastifyReply,
         user: AdminUser,
-        meta: { ip?: string; ua?: string; request?: import('fastify').FastifyRequest },
+        meta: {
+          ip?: string;
+          ua?: string;
+          request?: import('fastify').FastifyRequest;
+          remember: boolean;
+        },
       ): Promise<AdminSession>;
       revokeSession(
         req: import('fastify').FastifyRequest,
         reply: import('fastify').FastifyReply,
       ): Promise<void>;
       cookieName: string;
-      sessionTtlDays: number;
-      cookieOpts: Record<string, unknown>;
     };
 
     /**

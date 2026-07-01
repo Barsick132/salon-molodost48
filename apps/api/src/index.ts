@@ -42,8 +42,30 @@ async function buildApp(): Promise<FastifyInstance> {
   // Make config available to plugins/routes as app.config
   app.decorate('config', config);
 
-  // Security headers
-  await app.register(fastifyHelmet, { contentSecurityPolicy: false });
+  // Security headers — Helmet with a tight CSP tuned for our widgets.
+  // We allow self + Dikidi (booking widget script + iframe) + Yandex Maps
+  // (map-widget v1 iframe). Google Fonts is preconnected from index.html;
+  // allowing fonts.googleapis.com covers it. Inline styles are needed for
+  // the Vue-scoped CSS fallbacks and accent-color paint, so we keep
+  // 'unsafe-inline' for style only.
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://dikidi.ru', "'unsafe-inline'"],
+        styleSrc: ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'", 'https://dikidi.ru', 'https://nominatim.openstreetmap.org'],
+        frameSrc: ["'self'", 'https://dikidi.ru', 'https://yandex.ru', 'https://*.yandex.ru'],
+        workerSrc: ["'self'", 'blob:'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  });
 
   // CORS
   if (config.CORS_ORIGINS.length > 0) {

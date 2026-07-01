@@ -92,8 +92,6 @@ const heroPayload = (b: BlockBase): HeroPayload => {
 };
 const ctaPayload = (b: BlockBase): CtaStripPayload => (b.type === 'cta-strip' ? (b.payload as unknown as CtaStripPayload) : { eyebrow: '', title: '', lead: '', ctaLabel: '', ctaHref: '' });
 
-interface IconSpec { size?: number; }
-
 // Map semantic icon names → inline SVG path fragments.
 // Admins edit the icon by typing a short keyword: tag / shield / clock / coffee / star / etc.
 function renderAdvantageIcon(key: string, size = 22) {

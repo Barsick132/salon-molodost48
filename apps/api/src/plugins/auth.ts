@@ -2,14 +2,17 @@
  * Auth plugin — JWT-cookie based admin authentication.
  *
  * Flow:
- *   - POST /api/admin/auth/login: verify email+password, create AdminSession,
- *     sign JWT { sessionId }, set HttpOnly cookie 'molodost48_session'
- *   - All other /api/admin/* routes use requireAdmin() preHandler:
- *     verify JWT, load session+user, populate req.adminUser, 401 if invalid
- *   - POST /api/admin/auth/logout: clear cookie, delete session row
+ *   - POST /api/admin/auth/login { email, password, remember? }
+ *     → verify email+password, create AdminSession, sign JWT, set cookie
+ *   - All other /api/admin/* routes use requireAdmin() preHandler
+ *   - POST /api/admin/auth/logout → clear cookie, delete session row
  *
- * Tokens are sessionId-based (not userId-based) so logout can revoke a token
- * by deleting the session row even if the JWT hasn't expired yet.
+ * Tokens are sessionId-based (not userId-based) so logout revokes a token
+ * by deleting the session row even if the JWT hasn't expired.
+ *
+ * Session TTLs:
+ *   - remember=true  → 30 days  (sticky persistent cookie)
+ *   - remember=false → 24 hours (still persistent, just short-lived)
  */
 
 import fp from 'fastify-plugin';
@@ -23,44 +26,48 @@ declare module 'fastify' {
 }
 
 const COOKIE_NAME = 'molodost48_session';
-const SESSION_TTL_DAYS = 7;
+const TTL_REMEMBER_DAYS = 30;
+const TTL_DEFAULT_HOURS = 24;
 
-function buildCookieOpts(opts: { secure: boolean; sameSite?: 'lax' | 'strict' | 'none' }) {
-  return {
-    httpOnly: true,
-    secure: opts.secure,
-    sameSite: opts.sameSite ?? 'lax',
-    path: '/',
-    signed: false, // JWT itself is signed; no need to sign cookie too
-    maxAge: SESSION_TTL_DAYS * 24 * 60 * 60,
-  } as const;
+function ttlSeconds(opts: { remember: boolean }) {
+  return opts.remember ? TTL_REMEMBER_DAYS * 24 * 60 * 60 : TTL_DEFAULT_HOURS * 60 * 60;
+}
+
+function cookieMaxAge(remember: boolean) {
+  return ttlSeconds({ remember });
 }
 
 export default fp(async (app) => {
-  // Cookie 'Secure' flag is set ONLY when the request scheme is HTTPS.
-  // Using a static NODE_ENV check would break IP-only HTTP previews.
-  const cookieOpts = buildCookieOpts({
-    secure: app.config.NODE_ENV === 'production' && false, // overridden per-request in issueSession
-  });
-  // Default (no request context): secure in prod
-  const defaultSecure = app.config.NODE_ENV === 'production';
-
   app.decorate('auth', {
-    /** Issue a session: write row, sign JWT, set cookie. */
-    async issueSession(reply: import('fastify').FastifyReply, user: AdminUser, meta: { ip?: string; ua?: string; request?: import('fastify').FastifyRequest }) {
-      const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    /**
+     * Issue a session: write row, sign JWT, set HttpOnly cookie.
+     * `remember` controls cookie persistence + JWT TTL (24h vs 30d).
+     */
+    async issueSession(
+      reply: import('fastify').FastifyReply,
+      user: AdminUser,
+      meta: { ip?: string; ua?: string; request?: import('fastify').FastifyRequest; remember: boolean },
+    ) {
+      const ttlSec = ttlSeconds({ remember: meta.remember });
+      const expiresAt = new Date(Date.now() + ttlSec * 1000);
       const session = await app.prisma.adminSession.create({
         data: { userId: user.id, expiresAt, ipAddress: meta.ip ?? null, userAgent: meta.ua ?? null },
       });
-      const token = await reply.jwtSign({ sid: session.id }, { expiresIn: `${SESSION_TTL_DAYS}d` });
-      // Detect HTTPS via trustProxy headers (X-Forwarded-Proto)
+      // JWT expiry accepts seconds (numeric) or string ('7d'); we pass seconds
+      const token = await reply.jwtSign({ sid: session.id }, { expiresIn: ttlSec });
+      // Trust X-Forwarded-Proto via trustProxy (set at server level)
       const isHttps = meta.request?.protocol === 'https';
-      const opts = isHttps ? cookieOpts : { ...cookieOpts, secure: false };
-      reply.setCookie(COOKIE_NAME, token, opts);
+      reply.setCookie(COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: isHttps,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: cookieMaxAge(meta.remember),
+      });
       return session;
     },
 
-    /** Read JWT from cookie, verify, look up session + user. Rejects if session revoked. */
+    /** Read JWT from cookie, verify, look up session + user. */
     async verifySession(req: import('fastify').FastifyRequest) {
       const token = req.cookies[COOKIE_NAME];
       if (!token) return null;
@@ -105,7 +112,5 @@ export default fp(async (app) => {
     },
 
     cookieName: COOKIE_NAME,
-    sessionTtlDays: SESSION_TTL_DAYS,
-    cookieOpts,
   });
 }, { name: 'auth', dependencies: ['prisma'] });

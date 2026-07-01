@@ -19,6 +19,9 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 const LoginBody = z.object({
   email: z.string().email().max(254),
   password: z.string().min(1).max(256),
+  // When true, session cookie persists across browser restarts for 30 days.
+  // When false (default), cookie still persists but is short-lived (24h).
+  remember: z.boolean().optional().default(false),
 });
 
 const UserResponse = z.object({
@@ -53,7 +56,7 @@ export default async function adminAuthRoutes(app: FastifyInstance) {
       response: { 200: js(z.object({ user: UserResponse })) },
     },
   }, async (req, reply) => {
-    const { email, password } = req.body as z.infer<typeof LoginBody>;
+    const { email, password, remember } = req.body as z.infer<typeof LoginBody>;
 
     const user = await app.prisma.adminUser.findUnique({ where: { email: email.toLowerCase() } });
     if (!user || !user.isActive) {
@@ -72,6 +75,7 @@ export default async function adminAuthRoutes(app: FastifyInstance) {
       ip: req.ip,
       ua: req.headers['user-agent'] as string | undefined,
       request: req,
+      remember: !!remember,
     });
     await app.prisma.adminUser.update({
       where: { id: user.id },
