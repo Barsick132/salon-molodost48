@@ -199,7 +199,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
           <div
             class="hero__bg-overlay"
             :style="{
-              opacity: (heroPayload(b).imageOverlay ?? 55) / 100,
+              opacity: 1,
               backgroundImage: heroOverlayStyle,
             }"
             aria-hidden="true"

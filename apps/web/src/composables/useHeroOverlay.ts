@@ -207,8 +207,10 @@ export function useHeroOverlay(
     //   2. Top shade: small ${top} opacity at the very top, fades
     //      to transparent by 30%. Just enough to anchor the nav +
     //      eyebrow line.
-    const bottom = tone === 'dark' ? 0.6 : 0.55
-    const top = tone === 'dark' ? 0.35 : 0.25
+    // Numbers are intentionally high so the scrim is always clearly
+    // visible — readability > pretty photo at this layer.
+    const bottom = tone === 'dark' ? 0.85 : 0.78
+    const top = tone === 'dark' ? 0.5 : 0.4
     style.value = [
       `linear-gradient(0deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${bottom.toFixed(2)}) 100%)`,
       `linear-gradient(180deg, rgba(${scrimR}, ${scrimG}, ${scrimB}, ${top.toFixed(2)}) 0%, rgba(${scrimR}, ${scrimG}, ${scrimB}, 0) 30%)`,
@@ -335,12 +337,13 @@ export function useHeroOverlay(
 // ---- helpers ----------------------------------------------------------
 
 function defaultStyle(): string {
-  // Same simple 2-layer pattern as the sampled style, so the user
-  // doesn't see a 'before / after' jump when the photo finishes
-  // loading.
+  // Same simple 2-layer pattern as the sampled style, just in neutral
+  // black. Numbers are high so even when canvas/CORS fails, the user
+  // sees a clear readable scrim — not the previous 'looks like no
+  // overlay at all' state.
   return [
-    'linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%)',
-    'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 30%)',
+    'linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 100%)',
+    'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%)',
   ].join(', ')
 }
 
