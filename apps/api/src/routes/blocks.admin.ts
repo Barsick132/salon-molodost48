@@ -36,13 +36,28 @@ const ItemValue = z.object({
 
 const Hero = z.object({
   eyebrow: z.string().max(80).default(''),
-  title: z.string().max(200),
+  // Headline is split into three pieces so the editor can style the middle
+  // one as an accent (different color, italic, gradient, etc.). For simple
+  // cases, leave accent empty and just fill titleBefore / titleAfter.
+  titleBefore: z.string().max(120).default(''),
+  titleAccent:  z.string().max(120).default(''),
+  titleAfter:   z.string().max(120).default(''),
+  // Legacy single-string title (kept for back-compat with older records).
+  title: z.string().max(300).default(''),
   lead: z.string().max(500).default(''),
   primaryCtaLabel: z.string().max(40).default('Записаться'),
   primaryCtaHref: z.string().max(500).default(''),
   secondaryCtaLabel: z.string().max(40).default(''),
   secondaryCtaHref: z.string().max(500).default(''),
   imageUrl: z.string().max(1000).default(''),
+  // Overlay opacity (0..100) over the image so the foreground text stays
+  // legible on lighter photos. Defaults to 55 (darken ~55%).
+  imageOverlay: z.number().int().min(0).max(100).default(55),
+  // Optional vertical anchor for the foreground block:
+  //   'top' / 'center' / 'bottom'
+  textAlign: z.enum(['top', 'center', 'bottom']).default('center'),
+  // Optional sticky-bottom scroll cue (the "↓" chevron)
+  showScrollCue: z.boolean().default(true),
 });
 const Stats = z.object({
   items: z.array(ItemValue).min(1).max(8),
@@ -88,13 +103,19 @@ export const DEFAULT_BLOCKS: Array<{
     type: 'hero',
     payload: {
       eyebrow: 'Салон красоты в Липецке · с 2013 года',
-      title: 'Красота — это ритуал заботы о себе.',
+      titleBefore: 'Красота — это ритуал',
+      titleAccent: 'заботы о себе',
+      titleAfter: '.',
+      title: '',
       lead: 'Запишитесь онлайн, выберите мастера и удобное время. Мы рядом, в самом центре.',
       primaryCtaLabel: 'Записаться онлайн',
       primaryCtaHref: 'https://dikidi.ru/#widget=212727',
       secondaryCtaLabel: 'Узнать цены',
       secondaryCtaHref: '/services',
       imageUrl: '/media/hero-default.jpg',
+      imageOverlay: 55,
+      textAlign: 'center',
+      showScrollCue: true,
     },
   },
   {

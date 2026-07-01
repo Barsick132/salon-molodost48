@@ -20,6 +20,10 @@ export interface BlockBase {
 
 export interface HeroPayload {
   eyebrow: string;
+  titleBefore: string;
+  titleAccent: string;
+  titleAfter: string;
+  /** Legacy single-string title (used when the new fields are empty). */
   title: string;
   lead: string;
   primaryCtaLabel: string;
@@ -27,6 +31,9 @@ export interface HeroPayload {
   secondaryCtaLabel: string;
   secondaryCtaHref: string;
   imageUrl: string;
+  imageOverlay: number;
+  textAlign: 'top' | 'center' | 'bottom';
+  showScrollCue: boolean;
 }
 export interface StatItem { value: string; label: string; }
 export interface AdvantageItem { icon: string; title: string; description: string; }

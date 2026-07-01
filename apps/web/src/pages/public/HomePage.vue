@@ -79,7 +79,17 @@ function isCtaStrip(b: BlockBase): b is BlockBase & { payload: CtaStripPayload }
 // Helpers to safely pull items from a block's payload in templates (vue-tsc-friendly)
 const statsItems = (b: BlockBase): StatItem[] => (b.type === 'stats' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
 const advItems = (b: BlockBase): AdvantageItem[] => (b.type === 'advantages' && Array.isArray((b.payload as any).items)) ? (b.payload as any).items : [];
-const heroPayload = (b: BlockBase): HeroPayload => (b.type === 'hero' ? (b.payload as unknown as HeroPayload) : { eyebrow: '', title: '', lead: '', primaryCtaLabel: '', primaryCtaHref: '', secondaryCtaLabel: '', secondaryCtaHref: '', imageUrl: '' });
+const heroPayload = (b: BlockBase): HeroPayload => {
+  if (b.type !== 'hero') {
+    return {
+      eyebrow: '', titleBefore: '', titleAccent: '', titleAfter: '', title: '',
+      lead: '', primaryCtaLabel: '', primaryCtaHref: '',
+      secondaryCtaLabel: '', secondaryCtaHref: '',
+      imageUrl: '', imageOverlay: 55, textAlign: 'center', showScrollCue: true,
+    };
+  }
+  return b.payload as unknown as HeroPayload;
+};
 const ctaPayload = (b: BlockBase): CtaStripPayload => (b.type === 'cta-strip' ? (b.payload as unknown as CtaStripPayload) : { eyebrow: '', title: '', lead: '', ctaLabel: '', ctaHref: '' });
 
 interface IconSpec { size?: number; }
@@ -151,32 +161,38 @@ onMounted(async () => {
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" class="hero">
-        <div class="container">
-          <div class="hero-inner" :class="{ 'hero-inner--has-image': heroPayload(b).imageUrl }">
-            <div v-if="heroPayload(b).eyebrow" class="eyebrow">{{ heroPayload(b).eyebrow }}</div>
-            <h1 class="hero-title">{{ heroPayload(b).title }}</h1>
-            <p v-if="heroPayload(b).lead" class="hero-lead">
-              {{ heroPayload(b).lead }}
-            </p>
-            <div class="hero-cta">
-              <a v-if="heroPayload(b).primaryCtaLabel" :href="resolveCta(heroPayload(b).primaryCtaHref)" class="hero-cta__primary">
-                {{ heroPayload(b).primaryCtaLabel }}
-              </a>
-              <a v-if="heroPayload(b).secondaryCtaLabel" :href="resolveCta(heroPayload(b).secondaryCtaHref)" class="hero-cta__secondary">
-                {{ heroPayload(b).secondaryCtaLabel }} →
-              </a>
-            </div>
-          </div>
-          <div v-if="heroPayload(b).imageUrl" class="hero-image">
-            <img :src="heroPayload(b).imageUrl" alt="" />
-            <div class="hero-image__glow" aria-hidden="true"></div>
-          </div>
-          <div class="hero-bg" aria-hidden="true">
-            <div class="hero-bg__grid"></div>
-            <div class="hero-bg__glow"></div>
+      <section v-if="isHero(b)" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`]">
+        <div v-if="heroPayload(b).imageUrl" class="hero__bg">
+          <img :src="heroPayload(b).imageUrl" alt="" />
+          <div
+            class="hero__bg-overlay"
+            :style="{ opacity: (heroPayload(b).imageOverlay ?? 55) / 100 }"
+            aria-hidden="true"
+          ></div>
+        </div>
+        <div class="hero__inner container">
+          <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow">{{ heroPayload(b).eyebrow }}</div>
+          <h1 class="hero__title">
+            <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span>
+            <span v-if="heroPayload(b).titleAccent" class="hero__title-accent">{{ heroPayload(b).titleAccent }}</span>
+            <span v-if="heroPayload(b).titleAfter" class="hero__title-after">{{ heroPayload(b).titleAfter }}</span>
+            <span v-if="!heroPayload(b).titleBefore && !heroPayload(b).titleAccent && heroPayload(b).title" class="hero__title-before">{{ heroPayload(b).title }}</span>
+          </h1>
+          <p v-if="heroPayload(b).lead" class="hero__lead">{{ heroPayload(b).lead }}</p>
+          <div class="hero__cta">
+            <a v-if="heroPayload(b).primaryCtaLabel" :href="resolveCta(heroPayload(b).primaryCtaHref)" class="hero__cta-primary">
+              {{ heroPayload(b).primaryCtaLabel }}
+            </a>
+            <a v-if="heroPayload(b).secondaryCtaLabel" :href="resolveCta(heroPayload(b).secondaryCtaHref)" class="hero__cta-secondary">
+              {{ heroPayload(b).secondaryCtaLabel }} →
+            </a>
           </div>
         </div>
+        <a v-if="heroPayload(b).showScrollCue" href="#after-hero" class="hero__scroll-cue" aria-label="Прокрутить вниз">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
       </section>
 
       <!-- ===== STATS ===== -->
@@ -278,6 +294,9 @@ onMounted(async () => {
       </section>
     </template>
 
+    <!-- Anchor target for hero scroll cue -->
+    <div id="after-hero" aria-hidden="true"></div>
+
     <!-- Empty-state hint for first-time visitors -->
     <div v-if="!blocksStore.loading && blocks.length === 0" class="empty-state">
       <div class="container">
@@ -291,136 +310,175 @@ onMounted(async () => {
 <style scoped>
 .home { padding-bottom: 0; }
 
-/* ============ HERO ============ */
+/* ============ HERO (full-bleed) ============ */
 .hero {
   position: relative;
-  padding: 5rem 0 4rem;
-  overflow: hidden;
-}
-.hero > .container {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2.5rem;
-  position: relative;
-}
-.hero-inner { max-width: 760px; position: relative; z-index: 3; }
-.eyebrow {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--color-accent);
-  margin-bottom: 1.25rem;
-  font-weight: 600;
-}
-.hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(2.25rem, 6vw, 4rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-  margin-bottom: 1.5rem;
-  color: var(--color-text-primary);
-}
-.hero-lead {
-  font-size: 1.125rem;
-  line-height: 1.5;
-  color: var(--color-text-secondary);
-  margin-bottom: 2rem;
-  max-width: 580px;
-}
-.hero-cta {
+  width: 100%;
+  min-height: 78vh;
   display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-.hero-cta__primary {
-  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  padding: 0.85rem 1.75rem;
-  background: var(--color-accent);
-  color: white;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  font-size: 1rem;
-  transition: background 0.15s ease;
-}
-.hero-cta__primary:hover { background: var(--color-accent-hover); }
-.hero-cta__secondary {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.85rem 1.5rem;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  text-decoration: none;
-  font-size: 1rem;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.hero-cta__secondary:hover { border-color: var(--color-accent); color: var(--color-accent); }
-
-.hero-image {
-  position: relative;
-  z-index: 2;
-  margin: 0 auto;
-  max-width: 380px;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--radius-xl);
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  box-shadow:
-    0 30px 60px -25px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(225, 29, 72, 0.15);
+  isolation: isolate;
+  background: var(--color-bg);
 }
-.hero-image img {
-  display: block;
+.hero--top { justify-content: flex-start; padding-top: 8rem; }
+.hero--center { justify-content: center; }
+.hero--bottom { justify-content: flex-end; padding-bottom: 5rem; }
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.hero__bg img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 30%;
+  object-position: center;
+  /* gentle zoom-in over 12s on first paint */
+  animation: heroZoom 14s ease-out both;
 }
-.hero-image__glow {
+@keyframes heroZoom {
+  from { transform: scale(1.05); }
+  to   { transform: scale(1); }
+}
+.hero__bg-overlay {
   position: absolute;
-  inset: -20% -10% auto auto;
-  width: 80%; aspect-ratio: 1;
-  background: radial-gradient(circle, rgba(225, 29, 72, 0.25), transparent 70%);
-  filter: blur(60px);
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.7) 80%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.6) 100%);
   z-index: -1;
 }
-@media (min-width: 900px) {
-  .hero > .container {
-    grid-template-columns: 1.1fr 0.9fr;
-    align-items: center;
-  }
-  .hero-image { margin: 0; max-width: 480px; }
+
+.hero__inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 880px;
+  padding: 6rem 0 4rem;
+  color: #fff;
+}
+.hero--top .hero__inner { text-align: left; margin: 0 auto 0 0; }
+.hero--bottom .hero__inner { text-align: center; padding-bottom: 4rem; }
+
+.hero__eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--color-accent);
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.hero-bg {
+.hero__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 7vw, 5rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  margin: 0 auto 1.5rem;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
+}
+.hero__title-before { display: inline; }
+.hero__title-accent {
+  display: inline;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--color-accent);
+  background: linear-gradient(135deg, #ff4d6d 0%, #e11d48 50%, #b91040 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.3));
+}
+.hero__title-after { display: inline; }
+
+.hero__lead {
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 auto 2rem;
+  max-width: 580px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+
+.hero__cta {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.hero--top .hero__cta { justify-content: flex-start; }
+.hero__cta-primary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.95rem 1.9rem;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-size: 1rem;
+  border: 1px solid var(--color-accent);
+  transition: background 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 8px 24px -10px rgba(225, 29, 72, 0.6);
+}
+.hero__cta-primary:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+.hero__cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.95rem 1.6rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  text-decoration: none;
+  font-size: 1rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.hero__cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.hero__scroll-cue {
   position: absolute;
-  inset: 0;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  animation: cueBounce 2.4s ease-in-out infinite;
   z-index: 1;
-  pointer-events: none;
-  overflow: hidden;
 }
-.hero-bg__grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(225, 29, 72, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(225, 29, 72, 0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-  mask-image: radial-gradient(ellipse 60% 60% at 80% 20%, black, transparent 80%);
+.hero__scroll-cue:hover { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+@keyframes cueBounce {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 6px); }
 }
-.hero-bg__glow {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(225, 29, 72, 0.15), transparent 70%);
-  top: -200px;
-  right: -100px;
-  filter: blur(40px);
+
+@media (max-width: 700px) {
+  .hero { min-height: 70vh; }
+  .hero__inner { padding: 5rem 0 3rem; }
 }
 
 /* ============ STATS ============ */

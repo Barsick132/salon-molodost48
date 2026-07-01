@@ -38,6 +38,9 @@ const ctaForm = ref<CtaStripPayload>(emptyCta());
 function emptyHero(): HeroPayload {
   return {
     eyebrow: '',
+    titleBefore: '',
+    titleAccent: '',
+    titleAfter: '',
     title: '',
     lead: '',
     primaryCtaLabel: 'Записаться',
@@ -45,6 +48,9 @@ function emptyHero(): HeroPayload {
     secondaryCtaLabel: '',
     secondaryCtaHref: '',
     imageUrl: '',
+    imageOverlay: 55,
+    textAlign: 'center',
+    showScrollCue: true,
   };
 }
 function emptyCta(): CtaStripPayload {
@@ -300,9 +306,9 @@ onMounted(store.fetchAdmin);
               <!-- HERO -->
               <template v-if="(editing.kind === 'existing' ? editing.block.type : newType) === 'hero'">
                 <label class="field">
-                  <span class="field__label">Картинка справа</span>
+                  <span class="field__label">Картинка-обложка (full-bleed на всю ширину)</span>
                   <div class="image-uploader">
-                    <div class="image-uploader__preview">
+                    <div class="image-uploader__preview image-uploader__preview--wide">
                       <img v-if="heroForm.imageUrl" :src="heroForm.imageUrl" alt="" />
                       <span v-else class="image-uploader__placeholder">не выбрана</span>
                     </div>
@@ -314,14 +320,50 @@ onMounted(store.fetchAdmin);
                     </div>
                   </div>
                 </label>
+
+                <div class="row row--3">
+                  <label class="field">
+                    <span class="field__label">Затемнение (0…100%)</span>
+                    <input v-model.number="heroForm.imageOverlay" type="number" min="0" max="100" class="field__input" />
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Выравнивание текста</span>
+                    <select v-model="heroForm.textAlign" class="field__input">
+                      <option value="top">Сверху</option>
+                      <option value="center">По центру</option>
+                      <option value="bottom">Снизу</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Стрелка ↓ для скролла</span>
+                    <select v-model="heroForm.showScrollCue" class="field__input">
+                      <option :value="true">Показывать</option>
+                      <option :value="false">Скрыть</option>
+                    </select>
+                  </label>
+                </div>
+
                 <label class="field">
                   <span class="field__label">Eyebrow (мелкий текст над заголовком)</span>
                   <input v-model="heroForm.eyebrow" class="field__input" />
                 </label>
-                <label class="field">
-                  <span class="field__label">Заголовок</span>
-                  <input v-model="heroForm.title" class="field__input" />
-                </label>
+
+                <div class="row row--3">
+                  <label class="field">
+                    <span class="field__label">Заголовок — часть 1</span>
+                    <input v-model="heroForm.titleBefore" class="field__input" placeholder="Красота — это ритуал" />
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Заголовок — акцент</span>
+                    <input v-model="heroForm.titleAccent" class="field__input" placeholder="заботы о себе" />
+                    <span class="field__hint">отображается italic + красным градиентом</span>
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Заголовок — часть 3</span>
+                    <input v-model="heroForm.titleAfter" class="field__input" placeholder="." />
+                  </label>
+                </div>
+
                 <label class="field">
                   <span class="field__label">Подзаголовок</span>
                   <textarea v-model="heroForm.lead" class="field__input" rows="2" />
@@ -603,6 +645,7 @@ onMounted(store.fetchAdmin);
 .field__input:focus { outline: none; border-color: var(--color-accent); }
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.row--3 { grid-template-columns: 1fr 1fr 1fr; }
 
 .repeater { display: flex; flex-direction: column; gap: 0.4rem; }
 .repeater__row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.5rem; align-items: center; }
@@ -629,6 +672,9 @@ onMounted(store.fetchAdmin);
   place-items: center;
   overflow: hidden;
   flex-shrink: 0;
+}
+.image-uploader__preview--wide {
+  width: 160px; height: 90px;
 }
 .image-uploader__preview img {
   width: 100%; height: 100%;
@@ -661,7 +707,7 @@ onMounted(store.fetchAdmin);
 .fade-enter-from .drawer, .fade-leave-to .drawer { transform: translateX(100%); }
 
 @media (max-width: 600px) {
-  .row { grid-template-columns: 1fr; }
+  .row, .row--3 { grid-template-columns: 1fr; }
   .repeater__row, .repeater__row--3 { grid-template-columns: 1fr; }
   .block-row { grid-template-columns: 50px 1fr; }
   .block-row__actions { grid-column: 1 / -1; justify-content: flex-end; }
