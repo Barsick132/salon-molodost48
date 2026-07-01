@@ -361,9 +361,79 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   overflow: hidden;
   background: var(--color-bg);
 }
-.hero--top { justify-content: flex-start; padding-top: 8rem; }
-.hero--center { justify-content: center; }
-.hero--bottom { justify-content: flex-end; padding-bottom: 5rem; }
+/* Vertical anchor — deliberately large padding so the choice is
+   obvious even on tall viewports (where 78vh gives lots of room
+   to spread out). A decorative accent line marks the anchor edge
+   so the eye reads the layout as 'intentionally placed', not just
+   'roughly centered'. */
+.hero--top {
+  justify-content: flex-start;
+  padding-top: clamp(8rem, 14vh, 14rem);
+  padding-bottom: 4rem;
+}
+.hero--top .hero__inner {
+  position: relative;
+  padding-top: 1.75rem;
+}
+.hero--top .hero__inner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    var(--color-accent) 0%,
+    var(--color-accent) 30%,
+    transparent 100%);
+  opacity: 0.7;
+}
+
+.hero--center {
+  justify-content: center;
+}
+.hero--center .hero__inner {
+  /* visually pin the center with a symmetric accent bracket above
+     and below the text block */
+  position: relative;
+  padding: 2.5rem 0;
+}
+.hero--center .hero__inner::before,
+.hero--center .hero__inner::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 1px;
+  background: var(--color-accent);
+  opacity: 0.6;
+}
+.hero--center .hero__inner::before { top: 0; }
+.hero--center .hero__inner::after { bottom: 0; }
+
+.hero--bottom {
+  justify-content: flex-end;
+  padding-top: 4rem;
+  padding-bottom: clamp(6rem, 12vh, 12rem);
+}
+.hero--bottom .hero__inner {
+  position: relative;
+  padding-bottom: 1.75rem;
+}
+.hero--bottom .hero__inner::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-accent) 70%,
+    var(--color-accent) 100%);
+  opacity: 0.7;
+}
 
 /* Horizontal alignment. .hero is a flex column, so cross-axis (horizontal)
    is controlled via align-self on the .hero__inner child. */
