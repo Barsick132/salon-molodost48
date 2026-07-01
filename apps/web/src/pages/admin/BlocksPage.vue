@@ -52,6 +52,7 @@ function emptyHero(): HeroPayload {
     textAlign: 'center',
     textAlignHorizontal: 'center',
     showScrollCue: true,
+    showOverlay: true,
   };
 }
 function emptyCta(): CtaStripPayload {
@@ -350,6 +351,15 @@ onMounted(store.fetchAdmin);
                       <option :value="false">Скрыть</option>
                     </select>
                   </label>
+                  <label class="field field--toggle">
+                    <input
+                      id="hero-show-overlay"
+                      v-model="heroForm.showOverlay"
+                      type="checkbox"
+                      class="field__checkbox"
+                    />
+                    <span class="field__label">Градиентная подложка под текст</span>
+                  </label>
                 </div>
 
                 <label class="field">
@@ -639,6 +649,15 @@ onMounted(store.fetchAdmin);
 }
 
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
+.field--toggle { flex-direction: row; align-items: center; gap: 0.6rem; cursor: pointer; }
+.field--toggle .field__label { cursor: pointer; }
+.field__checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
 .field__label { font-size: 0.8rem; color: var(--color-text-secondary); font-weight: 500; }
 .field__input {
   background: var(--color-surface-2);

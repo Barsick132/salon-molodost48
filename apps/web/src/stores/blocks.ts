@@ -35,6 +35,7 @@ export interface HeroPayload {
   textAlign: 'top' | 'center' | 'bottom';
   textAlignHorizontal: 'left' | 'center' | 'right';
   showScrollCue: boolean;
+  showOverlay: boolean;
 }
 export interface StatItem { value: string; label: string; }
 export interface AdvantageItem { icon: string; title: string; description: string; }

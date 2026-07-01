@@ -61,6 +61,11 @@ const Hero = z.object({
   textAlignHorizontal: z.enum(['left', 'center', 'right']).default('center'),
   // Optional sticky-bottom scroll cue (the "↓" chevron)
   showScrollCue: z.boolean().default(true),
+  // Show the colour-tinted gradient overlay over the hero photo.
+  // Default true - most photos need a scrim to keep the foreground
+  // text legible. Set false for high-contrast photos where the
+  // overlay would be redundant.
+  showOverlay: z.boolean().default(true),
 });
 const Stats = z.object({
   items: z.array(ItemValue).min(1).max(8),
@@ -120,6 +125,7 @@ export const DEFAULT_BLOCKS: Array<{
       textAlign: 'center',
       textAlignHorizontal: 'center',
       showScrollCue: true,
+      showOverlay: true,
     },
   },
   {

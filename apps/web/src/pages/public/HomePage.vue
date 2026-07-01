@@ -87,6 +87,7 @@ const heroPayload = (b: BlockBase): HeroPayload => {
       lead: '', primaryCtaLabel: '', primaryCtaHref: '',
       secondaryCtaLabel: '', secondaryCtaHref: '',
       imageUrl: '', imageOverlay: 55, textAlign: 'center', showScrollCue: true,
+      showOverlay: true,
       textAlignHorizontal: 'center',
     };
   }
@@ -198,6 +199,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
+            v-if="heroPayload(b).showOverlay !== false"
             class="hero__bg-overlay"
             :style="{
               opacity: 1,
