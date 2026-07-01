@@ -699,11 +699,19 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
      the editor can still anchor the text to the top or bottom of
      the hero even on mobile. */
   .hero--h-left .hero__inner,
-  .hero--h-right .hero__inner {
+  .hero--h-right .hero__inner,
+  .hero--h-center .hero__inner {
     align-self: center;
     margin-left: auto;
     margin-right: auto;
-    max-width: 720px;
+    /* On a 360px phone, max-width: 720px was 2x the viewport — the
+       inner block ended up wider than the screen and the headline
+       spilled out the right side. cap at 100% of the parent so the
+       column never exceeds the viewport, regardless of the editor's
+       desktop max-width setting. */
+    max-width: min(720px, 100%);
+    width: 100%;
+    box-sizing: border-box;
     text-align: center;
     padding: 4rem 1.5rem;
   }
