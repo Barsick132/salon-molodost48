@@ -356,7 +356,6 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  isolation: isolate;
   background: var(--color-bg);
 }
 .hero--top { justify-content: flex-start; padding-top: 8rem; }
@@ -366,7 +365,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero__bg {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: 0;
 }
 .hero__bg img {
   width: 100%;
@@ -387,14 +386,17 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero__bg-overlay {
   position: absolute;
   inset: 0;
-  /* background-image is set inline by useHeroOverlay, based on a sample
-     of the photo's text region. Fallback (no image yet / no JS) is the
-     static gradient below. */
+  /* background-image is set inline by useHeroOverlay. As a CSS fallback
+     (no image yet, no JS) we render a clearly-visible bottom-up
+     scrim so the user never sees a 'no overlay' state. The full
+     sampled version from the composable will replace this once
+     the image has been decoded and analysed. */
   background:
-    radial-gradient(ellipse at 50% 30%, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.7) 80%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.6) 100%);
-  z-index: -1;
-  transition: opacity 0.3s ease, background 0.4s ease;
+    linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%);
+  z-index: 1;
+  pointer-events: none;
+  transition: background-image 0.4s ease;
 }
 
 /* Text colours are set inline by useHeroOverlay: it picks a tinted
@@ -404,7 +406,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 .hero__inner {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   text-align: center;
   max-width: 880px;
   padding: 6rem 0 4rem;
