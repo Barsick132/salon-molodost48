@@ -42,9 +42,12 @@ export const router = createRouter({
   },
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.requiresAuth) {
     const authStore = useAuthStore();
+    if (!authStore.isAuthenticated) {
+      await authStore.check();
+    }
     if (!authStore.isAuthenticated) {
       return { name: 'admin-login', query: { redirect: to.fullPath } };
     }
