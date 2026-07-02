@@ -149,8 +149,24 @@ export function useHeroOverlay(
       if (myToken !== token) return
       // Log the actual reason in dev so we can debug fallback use
       // cases (CORS, decode, tainted canvas, etc).
+      // Pull every own property manually — DOMException / Event / Error
+      // have non-enumerable fields that JSON.stringify would otherwise
+      // turn into {} (which is what the first iteration of this code
+      // surfaced, masking the real cause).
       if (typeof console !== 'undefined') {
-        console.warn('[heroOverlay] sampling failed, using fallback scrim', { url, err })
+        const detail: Record<string, unknown> = {
+          url,
+          name: (err as any)?.name,
+          message: (err as any)?.message,
+          code: (err as any)?.code,
+          // Image decode events: `type`, `target.src`, etc.
+          type: (err as any)?.type,
+          src: (err as any)?.target?.src,
+        }
+        if (typeof (err as any)?.stack === 'string') {
+          detail.stack = (err as any).stack.split('\n').slice(0, 4).join(' | ')
+        }
+        console.warn('[heroOverlay] sampling failed, using fallback scrim', detail)
       }
       style.value = defaultStyle()
       textColor.value = '#ffffff'
