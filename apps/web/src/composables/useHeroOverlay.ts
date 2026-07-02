@@ -58,6 +58,14 @@ export type HeroOverlay = {
   source: Ref<'sampled' | 'fallback' | 'cached'>
   /** Last sample metrics, useful for diagnostics / admin previews. */
   lastSample: Ref<Sample | null>
+  /**
+   * Accent colour derived from the photo's text-region dominant.
+   * Used by the hero section as a CSS variable (--hero-accent) so
+   * eyebrow, title-accent gradient, CTA primary, tick marks and
+   * meta-dot all harmonise with the photo instead of fighting it.
+   * Falls back to the brand accent (#E11D48) on neutral photos.
+   */
+  accentColor: Ref<string>
 }
 
 type Sample = {
@@ -88,6 +96,12 @@ export function useHeroOverlay(
   const ready = ref(false)
   const source = ref<'sampled' | 'fallback' | 'cached'>('fallback')
   const lastSample = ref<Sample | null>(null)
+  // Hero-local accent — derived from the photo's dominant colour so
+  // eyebrow / title-accent / CTA primary all read as a harmonious
+  // pair with the cover instead of fixed red competing with it.
+  // Falls back to the brand accent on neutral photos.
+  const accentColor = ref<string>('#E11D48')
+  const BRAND_ACCENT = '#E11D48'
 
   let currentUrl = ''
   let token = 0
@@ -172,6 +186,7 @@ export function useHeroOverlay(
       textColor.value = '#ffffff'
       mutedTextColor.value = 'rgba(255, 255, 255, 0.78)'
       textTone.value = 'light'
+      accentColor.value = BRAND_ACCENT
       source.value = 'fallback'
       ready.value = true
     }
@@ -283,6 +298,19 @@ export function useHeroOverlay(
       textColor.value = mixTint('#0a0a0a', baseR, baseG, baseB, 0.08)
       mutedTextColor.value = `rgba(${tintRgba('#0a0a0a', baseR, baseG, baseB, 0.08)}, 0.85)`
     }
+
+    // Hero-local accent: derive from the photo's text-region dominant
+    // so eyebrow / title-accent / CTA / tick marks harmonise with the
+    // cover. On neutral (low-saturation) photos we keep the brand
+    // accent — anything more would feel arbitrary on a near-grey cover.
+    accentColor.value = deriveHeroAccent(
+      s.textRegionDominant,
+      // `textRegionDominant` already excludes near-neutral patches
+      // (we used it to set baseR/G/B above), so for the accent we
+      // want the raw colour to honour saturation properly.
+      { r: dom.r, g: dom.g, b: dom.b },
+      BRAND_ACCENT,
+    )
   }
 
   // ----- observers -----
@@ -383,7 +411,101 @@ export function useHeroOverlay(
     { immediate: true },
   )
 
-  return { style, textColor, mutedTextColor, textTone, ready, source, lastSample }
+  return { style, textColor, mutedTextColor, textTone, ready, source, lastSample, accentColor }
+}
+
+/**
+ * deriveHeroAccent — pick the accent colour for the hero section
+ * based on the photo's dominant colour in the text region.
+ *
+ * Algorithm:
+ *   1. If the photo is near-neutral (low saturation), keep the brand
+ *      accent — anything more would feel arbitrary on a near-grey cover.
+ *   2. Otherwise take the photo's hue, boost saturation, and invert
+ *      lightness so the accent lands in the opposite brightness zone
+ *      from the photo. Result: an accent that belongs to the same
+ *      colour family as the cover but always stands out from it.
+ *   3. Clamp so we never accidentally produce something invisible
+ *      (very dark + very saturated = hard to read on white text).
+ *   4. Sanity check: if the derived accent lacks 3:1 contrast against
+ *      the photo, fall back to the brand accent. WCAG AA UI minimum.
+ */
+function deriveHeroAccent(
+  dominant: { r: number; g: number; b: number },
+  _photoForContrast: { r: number; g: number; b: number },
+  brandAccent: string,
+): string {
+  const { h, s, l } = rgbToHsl(dominant.r / 255, dominant.g / 255, dominant.b / 255)
+
+  // Near-neutral photo: brand accent reads fine, no need to invent
+  // a colour that wouldn't make sense against grey.
+  if (s < 0.18) return brandAccent
+
+  // Same hue, boosted saturation, inverted lightness.
+  // - Light photo (l > 0.5) → dark accent (clamp at l=0.18 floor)
+  // - Dark photo  (l < 0.5) → light accent (clamp at l=0.85 ceiling)
+  // Inverting brightness is the cheapest way to guarantee visual
+  // contrast within the same hue family.
+  const newS = Math.min(1, s * 1.25 + 0.1)
+  const newL = l > 0.5
+    ? Math.max(0.18, l - 0.45)
+    : Math.min(0.85, l + 0.5)
+  const [r, g, b] = hslToRgb(h, newS, newL)
+
+  // WCAG-style sanity check: derived accent vs photo. If the derived
+  // accent is too close in luminance to the photo (would disappear
+  // when placed against it), fall back to brand accent.
+  if (contrastRatio([r, g, b], [dominant.r, dominant.g, dominant.b]) < 1.5) {
+    return brandAccent
+  }
+
+  return rgbToHex(r, g, b)
+}
+
+/**
+ * rgbToHex / contrastRatio / hslToRgb — pure helpers, all O(1).
+ */
+function contrastRatio(
+  c1: [number, number, number],
+  c2: [number, number, number],
+): number {
+  const L1 = relativeLuminance(c1[0], c1[1], c1[2])
+  const L2 = relativeLuminance(c2[0], c2[1], c2[2])
+  const lighter = Math.max(L1, L2)
+  const darker = Math.min(L1, L2)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  // sRGB → linear → relative luminance per WCAG 2.x.
+  const lin = (v: number) => {
+    const s = v / 255
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  // h ∈ [0, 1], s ∈ [0, 1], l ∈ [0, 1] → r, g, b ∈ [0, 255]
+  if (s === 0) {
+    const v = Math.round(l * 255)
+    return [v, v, v]
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const conv = (t: number): number => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1 / 6) return p + (q - p) * 6 * t
+    if (t < 1 / 2) return q
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+    return p
+  }
+  return [
+    Math.round(conv(h + 1 / 3) * 255),
+    Math.round(conv(h) * 255),
+    Math.round(conv(h - 1 / 3) * 255),
+  ]
 }
 
 // ---- helpers ----------------------------------------------------------

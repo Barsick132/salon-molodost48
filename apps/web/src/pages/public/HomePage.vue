@@ -210,7 +210,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" :ref="setHeroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'">
+      <section v-if="isHero(b)" :ref="setHeroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'" :style="{ '--hero-accent': heroOverlay.accentColor.value }">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
@@ -224,7 +224,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
           ></div>
         </div>
         <div :ref="setHeroInnerEl" class="hero__inner container">
-          <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).eyebrow }}</div>
+          <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow">{{ heroPayload(b).eyebrow }}</div>
           <h1 class="hero__title" :style="{ color: heroTextColor }">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span><span
               v-if="heroPayload(b).titleBefore && heroPayload(b).titleAccent"
@@ -588,10 +588,18 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: var(--color-accent);
+  /* Adaptive accent: same colour family as the photo (derived by
+     useHeroOverlay from the dominant colour). The shadow halo
+     below guarantees it stays readable when the photo and the
+     adaptive accent happen to land in the same hue zone. */
+  color: var(--hero-accent, var(--color-accent));
   margin-bottom: 0.85rem;
   font-weight: 600;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* Halo: a soft dark glow around the text + a sharp drop shadow.
+     Works on light photos, dark photos, and accent-tinted photos. */
+  text-shadow:
+    0 0 8px rgba(0, 0, 0, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.4);
   border: 0;
   padding: 0;
   position: relative;
@@ -605,8 +613,8 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   height: 1px;
   margin-top: 0.65rem;
   background: linear-gradient(90deg,
-    var(--color-accent) 0%,
-    rgba(225, 29, 72, 0.4) 60%,
+    var(--hero-accent, var(--color-accent)) 0%,
+    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 60%, transparent) 60%,
     transparent 100%);
 }
 /* Left/right editorial: vertical accent line beside the eyebrow. */
@@ -669,16 +677,21 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   display: inline;
   font-style: italic;
   font-weight: 500;
-  color: var(--color-accent);
-  background: linear-gradient(135deg, #ff4d6d 0%, #e11d48 50%, #b91040 100%);
+  /* Adaptive accent: pulls the hero-local --hero-accent CSS variable
+     (set inline by useHeroOverlay) and builds a 3-stop gradient
+     around it using color-mix(). Falls back to the brand accent
+     gradient if --hero-accent isn't set. */
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 70%, white 30%) 0%,
+    var(--hero-accent, var(--color-accent)) 50%,
+    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 70%, black 30%) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  color: transparent;
   text-shadow: none;
-  /* A faint dark stroke around the glyphs keeps the crimson readable
-     when the photo's red tones (lipstick, dress, warm light) sit
-     behind it. The drop-shadow trick is the cheapest way to add a
-     stroke to a background-clip:text element. */
+  /* A faint dark stroke around the glyphs keeps the gradient readable
+     when the photo's own tones sit behind it. */
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 .hero__title-after { display: inline; }
@@ -714,14 +727,17 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   display: inline-flex;
   align-items: center;
   padding: 0.95rem 1.9rem;
-  background: var(--color-accent);
+  background: var(--hero-accent, var(--color-accent));
   color: #fff;
   font-weight: 600;
   border-radius: var(--radius-md);
   text-decoration: none;
   font-size: 1rem;
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--hero-accent, var(--color-accent));
   transition: background 0.15s ease, transform 0.15s ease;
+  /* Glow under the CTA picks up the same hero-local accent. We can't
+     reference --hero-accent in a shadow colour easily, so we leave
+     the brand-coloured glow as a subtle ambient cue. */
   box-shadow: 0 8px 24px -10px rgba(225, 29, 72, 0.6);
 }
 .hero__cta-primary:hover {
@@ -766,7 +782,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero--h-left .hero__meta { justify-content: flex-start; }
 .hero--h-right .hero__meta { justify-content: flex-end; }
 .hero__meta-dot {
-  color: var(--color-accent);
+  color: var(--hero-accent, var(--color-accent));
   font-weight: 700;
   margin-right: 0.45rem;
   opacity: 0.6;
