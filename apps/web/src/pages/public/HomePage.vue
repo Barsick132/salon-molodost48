@@ -220,6 +220,24 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
               {{ heroPayload(b).secondaryCtaLabel }} →
             </a>
           </div>
+
+          <!-- Micro-context line under the buttons: gives the visitor
+               a single-glance answer to «where and when» before they
+               click anything. Low-contrast on purpose. -->
+          <p
+            v-if="site.settings.loaded && (site.settings.contact.address || site.settings.contact.workingHours)"
+            class="hero__meta"
+            :style="{ color: heroMutedTextColor }"
+          >
+            <template v-if="site.settings.contact.address">
+              <span class="hero__meta-dot" aria-hidden="true">·</span>
+              {{ site.settings.contact.address }}
+            </template>
+            <template v-if="site.settings.contact.workingHours">
+              <span class="hero__meta-dot" aria-hidden="true">·</span>
+              {{ site.settings.contact.workingHours }}
+            </template>
+          </p>
         </div>
         <a v-if="heroPayload(b).showScrollCue" href="#" class="hero__scroll-cue" @click.prevent="scrollPastHero" aria-label="Прокрутить вниз">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -544,13 +562,27 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   display: inline-block;
   font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   color: var(--color-accent);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.85rem;
   font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   border: 0;
   padding: 0;
+  position: relative;
+}
+/* Decorative gradient line under the eyebrow — visually connects it
+   to the headline and adds the same accent palette as the title. */
+.hero__eyebrow::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 1px;
+  margin-top: 0.65rem;
+  background: linear-gradient(90deg,
+    var(--color-accent) 0%,
+    rgba(225, 29, 72, 0.4) 60%,
+    transparent 100%);
 }
 /* Left/right editorial: vertical accent line beside the eyebrow. */
 .hero--h-left .hero__eyebrow {
@@ -564,24 +596,31 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 .hero__title {
   font-family: var(--font-display);
-  font-size: clamp(2.4rem, 7vw, 5rem);
+  /* Bigger headline: editorial scale for the center mode. clamp()
+     keeps mobile (3rem) and desktop (6rem) both strong. */
+  font-size: clamp(3rem, 7.5vw, 6rem);
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.04;
-  margin: 0 auto 1.5rem;
+  margin: 0 auto 1.1rem;
   color: #fff;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
 }
 /* Narrower, calmer title on left/right editorial modes. */
 .hero--h-left .hero__title,
 .hero--h-right .hero__title {
-  font-size: clamp(2.1rem, 4.6vw, 3.4rem);
-  margin: 0 0 1.25rem;
-  max-width: 600px;
+  font-size: clamp(2.6rem, 5.2vw, 4rem);
+  margin: 0 0 1rem;
+  max-width: 640px;
 }
 .hero--h-left .hero__title { margin-left: 0; margin-right: auto; }
 .hero--h-right .hero__title { margin-left: auto; margin-right: 0; }
-.hero__title-before { display: inline; }
+.hero__title-before {
+  display: inline;
+  /* Brand name stands in upright roman — italic is reserved for the
+     closing accent ("состояние"). One italic per headline. */
+  font-style: normal;
+}
 .hero__title-accent {
   display: inline;
   font-style: italic;
@@ -602,17 +641,18 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 
 .hero__lead {
   font-size: clamp(1rem, 1.6vw, 1.2rem);
-  line-height: 1.5;
+  line-height: 1.55;
   color: rgba(255, 255, 255, 0.85);
-  margin: 0 auto 2rem;
+  margin: 0 auto 1.4rem;
   max-width: 580px;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
 }
 .hero--h-left .hero__lead,
 .hero--h-right .hero__lead {
   font-size: clamp(0.95rem, 1.4vw, 1.1rem);
-  margin: 0 0 1.75rem;
-  max-width: 460px;
+  line-height: 1.55;
+  margin: 0 0 1.3rem;
+  max-width: 480px;
 }
 .hero--h-left .hero__lead { margin-left: 0; margin-right: auto; }
 .hero--h-right .hero__lead { margin-left: auto; margin-right: 0; }
@@ -622,9 +662,10 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   gap: 0.85rem;
   flex-wrap: wrap;
   justify-content: center;
+  margin-bottom: 1rem;
 }
-.hero--h-left .hero__cta { justify-content: flex-start; }
-.hero--h-right .hero__cta { justify-content: flex-end; }
+.hero--h-left .hero__cta { justify-content: flex-start; margin-left: 0; margin-right: auto; }
+.hero--h-right .hero__cta { justify-content: flex-end; margin-left: auto; margin-right: 0; }
 .hero__cta-primary {
   display: inline-flex;
   align-items: center;
@@ -661,6 +702,30 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero__cta-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Micro-context under the CTAs: small, low-contrast, almost whispered.
+   Sits on its own line so it never competes with the buttons. */
+.hero__meta {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.01em;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.6rem;
+  align-items: baseline;
+  justify-content: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.hero--h-left .hero__meta { justify-content: flex-start; }
+.hero--h-right .hero__meta { justify-content: flex-end; }
+.hero__meta-dot {
+  color: var(--color-accent);
+  font-weight: 700;
+  margin-right: 0.45rem;
+  opacity: 0.6;
 }
 
 .hero__scroll-cue {

@@ -107,18 +107,27 @@ export const DEFAULT_BLOCKS: Array<{
   {
     type: 'hero',
     payload: {
-      eyebrow: 'Салон красоты в Липецке · с 2013 года',
-      titleBefore: 'Красота — это ритуал',
-      titleAccent: 'заботы о себе',
+      // Eyebrow: ёмкий credibility marker. Год основания салона = доверие,
+      // подаём как факт, а не как постскриптум. UPPERCASE, но без воды.
+      eyebrow: 'Липецк · с 2013',
+      // Headline split. titleBefore — обычное начертание (бренд стоит прямо,
+      // это имя собственное, не стилистический приём). titleAccent — italic
+      // + accent gradient, завершает фразу с жестом послевкусия.
+      titleBefore: 'Молодость — это не возраст.',
+      titleAccent: 'Это состояние.',
       title: '',
-      lead: 'Запишитесь онлайн, выберите мастера и удобное время. Мы рядом, в самом центре.',
+      // Lead: НЕ дублирует primary CTA («Записаться онлайн» уже в кнопке).
+      // Вместо этого — категории услуг и контекст «где»: тихий двор, центр.
+      lead: 'Стрижки, уход, маникюр, косметология. В самом центре Липецка — тихий двор, без спешки.',
       primaryCtaLabel: 'Записаться онлайн',
       primaryCtaHref: 'https://dikidi.ru/#widget=212727',
-      secondaryCtaLabel: 'Узнать цены',
-      secondaryCtaHref: '/services',
+      // Secondary CTA: ведёт на контакты (где нас найти), а не на услуги —
+      // «Узнать цены» звучит как «где-то спрятано», а нам нужно действие.
+      secondaryCtaLabel: 'Как нас найти',
+      secondaryCtaHref: '/contacts',
       imageUrl: '/media/hero-default.jpg',
       textAlign: 'center',
-      textAlignHorizontal: 'center',
+      textAlignHorizontal: 'left',
       showScrollCue: true,
       showOverlay: true,
     },
@@ -216,7 +225,12 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
     let payload = existing.payload as unknown;
     if (body.payload !== undefined) {
-      const validated = validatePayload(existing.type as any, body.payload);
+      // Merge the patch over the existing payload BEFORE validating.
+      // Without this merge, every Zod default (`.default('')`) would
+      // blank out fields the editor didn't bother to re-send (e.g.
+      // imageUrl) on every save — a classic footgun.
+      const merged = { ...((existing.payload as object) ?? {}), ...(body.payload as object) };
+      const validated = validatePayload(existing.type as any, merged);
       if (!validated.ok) {
         reply.code(400).send({ error: { code: 'invalid_payload', message: validated.error } });
         return;
