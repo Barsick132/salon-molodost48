@@ -10,7 +10,6 @@ import { onMounted, ref, computed, useTemplateRef } from 'vue';
 import { useSiteStore } from '@/stores/site';
 import { useBlocksStore, type BlockBase, type HeroPayload, type StatItem, type AdvantageItem, type CtaStripPayload } from '@/stores/blocks';
 import { api } from '@/api/client';
-import { useHeroOverlay } from '@/composables/useHeroOverlay';
 
 const site = useSiteStore();
 const blocksStore = useBlocksStore();
@@ -180,32 +179,6 @@ const heroImageUrl = computed(() => {
   const hero = blocks.value.find(isHero);
   return hero ? heroPayload(hero).imageUrl ?? null : null;
 });
-// Callback refs instead of useTemplateRef. We're inside a v-for over
-// blocks, and useTemplateRef in a v-for returns an ARRAY of elements
-// (one per iteration) — but we only have one hero block, so calling
-// heroElRef.value.getBoundingClientRect() blows up with
-// 'h.getBoundingClientRect is not a function'. Callback refs give us
-// a single Ref<Element | null> that we manage manually, regardless
-// of how many times the template mounts.
-const heroElRef = ref<HTMLElement | null>(null);
-const heroInnerElRef = ref<HTMLElement | null>(null);
-// Callback refs in v-for receive Element | ComponentPublicInstance | null.
-// Only assign when we actually get a real DOM element (the parent <section>
-// and <div> are plain elements, never components, so instanceof Element
-// is the right guard).
-function setHeroEl(el: Element | { $el?: Element } | null) {
-  if (el && el instanceof Element) heroElRef.value = el as HTMLElement
-  else heroElRef.value = null
-}
-function setHeroInnerEl(el: Element | { $el?: Element } | null) {
-  if (el && el instanceof Element) heroInnerElRef.value = el as HTMLElement
-  else heroInnerElRef.value = null
-}
-const heroOverlay = useHeroOverlay(heroImageUrl, { hero: heroElRef, text: heroInnerElRef });
-const heroOverlayStyle = computed(() => heroOverlay.style.value);
-const heroTextTone = computed(() => heroOverlay.textTone.value);
-const heroTextColor = computed(() => heroOverlay.textColor.value);
-const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 </script>
 
 <template>
@@ -213,22 +186,18 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" :ref="setHeroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'" :style="{ '--hero-accent': heroOverlay.accentColor.value, '--hero-halo': heroOverlay.accentHalo.value }">
+      <section v-if="isHero(b)" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
             v-if="heroPayload(b).showOverlay !== false"
             class="hero__bg-overlay"
-            :style="{
-              opacity: 1,
-              backgroundImage: heroOverlayStyle,
-            }"
             aria-hidden="true"
           ></div>
         </div>
-        <div :ref="setHeroInnerEl" class="hero__inner container">
+        <div class="hero__inner container" class="hero__inner container">
           <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow">{{ heroPayload(b).eyebrow }}</div>
-          <h1 class="hero__title" :style="{ color: heroTextColor }">
+          <h1 class="hero__title">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span><span
               v-if="heroPayload(b).titleBefore && heroPayload(b).titleAccent"
               aria-hidden="true"
@@ -239,7 +208,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
             >{{ heroPayload(b).titleAccent }}</span>
             <span v-if="!heroPayload(b).titleBefore && !heroPayload(b).titleAccent && heroPayload(b).title" class="hero__title-before">{{ heroPayload(b).title }}</span>
           </h1>
-          <p v-if="heroPayload(b).lead" class="hero__lead" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).lead }}</p>
+          <p v-if="heroPayload(b).lead" class="hero__lead">{{ heroPayload(b).lead }}</p>
           <div class="hero__cta">
             <a v-if="heroPayload(b).primaryCtaLabel" :href="resolveCta(heroPayload(b).primaryCtaHref)" class="hero__cta-primary">
               {{ heroPayload(b).primaryCtaLabel }}
@@ -255,7 +224,6 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
           <p
             v-if="site.settings.loaded && (site.settings.contact.address || site.settings.contact.workingHours)"
             class="hero__meta"
-            :style="{ color: heroMutedTextColor }"
           >
             <template v-if="site.settings.contact.address">
               <span class="hero__meta-dot" aria-hidden="true">·</span>
@@ -553,10 +521,6 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero__bg-overlay {
   position: absolute;
   inset: 0;
-  /* background-image is set inline by useHeroOverlay. As a CSS fallback
-     (no image yet, no JS) we render a clearly-visible bottom-up
-     scrim so the user never sees a 'no overlay' state. The full
-     sampled version from the composable will replace this once
      the image has been decoded and analysed. */
   background:
     /* 0deg = bottom-to-top: dense black at the bottom, transparent
@@ -569,8 +533,6 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   transition: background-image 0.4s ease;
 }
 
-/* Text colours are set inline by useHeroOverlay: it picks a tinted
-   version of the dominant photo colour (warm-white for dark scrims,
    warm-black for light scrims). The accent portion of the headline
    keeps the brand crimson regardless of tone — see below. */
 
@@ -596,20 +558,10 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  /* Adaptive accent: same colour family as the photo (derived by
-     useHeroOverlay from the dominant colour). The shadow halo
-     below guarantees it stays readable when the photo and the
-     adaptive accent happen to land in the same hue zone. */
-  color: var(--hero-accent, var(--color-accent));
+  color: var(--color-accent);
   margin-bottom: 0.85rem;
   font-weight: 600;
-  /* Adaptive halo: --hero-halo is set inline by useHeroOverlay
-     to either a dark glow (for light accents) or a light glow
-     (for dark accents). Whatever the photo / accent pair, the
-     opposite-tone halo guarantees eyebrow stays readable. */
-  text-shadow:
-    0 0 8px var(--hero-halo, rgba(0, 0, 0, 0.55)),
-    0 1px 3px var(--hero-halo, rgba(0, 0, 0, 0.4));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   border: 0;
   padding: 0;
   position: relative;
@@ -623,8 +575,8 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   height: 1px;
   margin-top: 0.65rem;
   background: linear-gradient(90deg,
-    var(--hero-accent, var(--color-accent)) 0%,
-    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 60%, transparent) 60%,
+    var(--color-accent) 0%,
+    rgba(225, 29, 72, 0.4) 60%,
     transparent 100%);
 }
 /* Left/right editorial: vertical accent line beside the eyebrow. */
@@ -687,23 +639,15 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   display: inline;
   font-style: italic;
   font-weight: 500;
-  /* Adaptive accent: pulls the hero-local --hero-accent CSS variable
-     (set inline by useHeroOverlay) and builds a 3-stop gradient
-     around it using color-mix(). Falls back to the brand accent
-     gradient if --hero-accent isn't set. */
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 70%, white 30%) 0%,
-    var(--hero-accent, var(--color-accent)) 50%,
-    color-mix(in srgb, var(--hero-accent, var(--color-accent)) 70%, black 30%) 100%);
+  /* Fixed rose gradient — predictable and matches brand accent. */
+  background: linear-gradient(135deg, #ff4d6d 0%, #e11d48 50%, #b91040 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: transparent;
   text-shadow: none;
-  /* Adaptive halo on the gradient title-accent — same idea as
-     eyebrow: opposite-tone glow so the gradient text stays legible
-     no matter what dominant colour the photo gave us. */
-  filter: drop-shadow(0 1px 2px var(--hero-halo, rgba(0, 0, 0, 0.5)));
+  /* Faint dark stroke keeps the gradient readable when the photo's
+     red tones sit behind it. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 .hero__title-after { display: inline; }
 
@@ -738,18 +682,15 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   display: inline-flex;
   align-items: center;
   padding: 0.95rem 1.9rem;
-  background: var(--hero-accent, var(--color-accent));
+  background: var(--color-accent);
   color: #fff;
   font-weight: 600;
   border-radius: var(--radius-md);
   text-decoration: none;
   font-size: 1rem;
-  border: 1px solid var(--hero-accent, var(--color-accent));
+  border: 1px solid var(--color-accent);
   transition: background 0.15s ease, transform 0.15s ease;
-  /* Glow under the CTA uses the same accent (color-mix to add
-     transparency). When --hero-accent changes, the glow changes
-     with it — CTA always feels native to its context. */
-  box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--hero-accent, var(--color-accent)) 100%, transparent);
+  box-shadow: 0 8px 24px -10px rgba(225, 29, 72, 0.6);
 }
 .hero__cta-primary:hover {
   background: var(--color-accent-hover);
@@ -793,7 +734,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .hero--h-left .hero__meta { justify-content: flex-start; }
 .hero--h-right .hero__meta { justify-content: flex-end; }
 .hero__meta-dot {
-  color: var(--hero-accent, var(--color-accent));
+  color: var(--color-accent);
   font-weight: 700;
   margin-right: 0.45rem;
   opacity: 0.6;
