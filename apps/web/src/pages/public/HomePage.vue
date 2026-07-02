@@ -128,24 +128,27 @@ function resolveCta(href: string): string {
   return href;
 }
 
-// Scroll cue handler — find the first non-hero <section> directly under
-// `.home` and smooth-scroll to it. Falls back to "just below the hero" if no
-// later block exists yet (admin hasn't set up anything).
+// Scroll cue handler — find the first non-hero block under .home
+// and smooth-scroll to it. Accounts for the sticky header so the
+// target isn't hidden underneath it on landing.
 function scrollPastHero() {
-  const root = document.querySelector('.home');
+  const HEADER_OFFSET = 72 // matches the header height in SiteHeader
+  const root = document.querySelector('.home')
   if (!root) {
-    window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' });
-    return;
+    window.scrollBy({ top: window.innerHeight * 0.85, behavior: 'smooth' })
+    return
   }
-  const sections = root.querySelectorAll(':scope > section');
-  for (const s of Array.from(sections)) {
-    if (!s.classList.contains('hero')) {
-      s.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
+  // Sections directly under .home (v-for renders <section> at this level).
+  const sections = root.querySelectorAll<HTMLElement>(':scope > section')
+  for (const target of Array.from(sections)) {
+    if (target.classList.contains('hero')) continue
+    const rect = target.getBoundingClientRect()
+    const targetY = window.scrollY + rect.top - HEADER_OFFSET
+    window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
+    return
   }
   // No following block — at least skip past the hero so the cue feels responsive.
-  window.scrollBy({ top: window.innerHeight * 0.85, behavior: 'smooth' });
+  window.scrollBy({ top: window.innerHeight * 0.85, behavior: 'smooth' })
 }
 
 // Always fetch services on mount, independent of whether the visibility flags
@@ -388,6 +391,11 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
 .home { padding-bottom: 0; }
 
 /* ============ HERO (full-bleed) ============ */
+/* All sections get a scroll offset so scrollIntoView / scrollTo
+   don't tuck the target underneath the sticky header. 72px matches
+   the header height in SiteHeader.vue. */
+.home > section { scroll-margin-top: 72px; }
+
 .hero {
   position: relative;
   width: 100%;
@@ -836,7 +844,17 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     width: 100%;
     box-sizing: border-box;
     text-align: center;
-    padding: 4rem 1.5rem;
+    padding: 3rem 1.25rem;
+  }
+
+  /* Mobile headline: cap at 2.5rem so it always fits a 360px viewport
+     with breathing room on both sides. 9vw gives a smooth scale from
+     360px (32.4px) up to 700px (48px, where the desktop clamp takes
+     over via max-width: min(720px, 100%)). */
+  .hero__title { font-size: clamp(1.75rem, 9vw, 2.5rem); }
+  .hero--h-left .hero__title,
+  .hero--h-right .hero__title {
+    font-size: clamp(1.6rem, 7.5vw, 2.1rem);
   }
 
   /* Editorial accent lines shrink / hide on small screens —
