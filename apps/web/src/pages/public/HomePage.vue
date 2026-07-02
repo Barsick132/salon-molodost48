@@ -177,8 +177,27 @@ const heroImageUrl = computed(() => {
   const hero = blocks.value.find(isHero);
   return hero ? heroPayload(hero).imageUrl ?? null : null;
 });
-const heroElRef = useTemplateRef<HTMLElement>('heroEl');
-const heroInnerElRef = useTemplateRef<HTMLElement>('heroInnerEl');
+// Callback refs instead of useTemplateRef. We're inside a v-for over
+// blocks, and useTemplateRef in a v-for returns an ARRAY of elements
+// (one per iteration) — but we only have one hero block, so calling
+// heroElRef.value.getBoundingClientRect() blows up with
+// 'h.getBoundingClientRect is not a function'. Callback refs give us
+// a single Ref<Element | null> that we manage manually, regardless
+// of how many times the template mounts.
+const heroElRef = ref<HTMLElement | null>(null);
+const heroInnerElRef = ref<HTMLElement | null>(null);
+// Callback refs in v-for receive Element | ComponentPublicInstance | null.
+// Only assign when we actually get a real DOM element (the parent <section>
+// and <div> are plain elements, never components, so instanceof Element
+// is the right guard).
+function setHeroEl(el: Element | { $el?: Element } | null) {
+  if (el && el instanceof Element) heroElRef.value = el as HTMLElement
+  else heroElRef.value = null
+}
+function setHeroInnerEl(el: Element | { $el?: Element } | null) {
+  if (el && el instanceof Element) heroInnerElRef.value = el as HTMLElement
+  else heroInnerElRef.value = null
+}
 const heroOverlay = useHeroOverlay(heroImageUrl, { hero: heroElRef, text: heroInnerElRef });
 const heroOverlayStyle = computed(() => heroOverlay.style.value);
 const heroTextTone = computed(() => heroOverlay.textTone.value);
@@ -191,7 +210,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
     <!-- ============== BLOCKS ============== -->
     <template v-for="(b, idx) in blocks" :key="b.id">
       <!-- ===== HERO ===== -->
-      <section v-if="isHero(b)" ref="heroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'">
+      <section v-if="isHero(b)" :ref="setHeroEl" :class="['hero', `hero--${heroPayload(b).textAlign || 'center'}`, `hero--h-${heroPayload(b).textAlignHorizontal || 'center'}`]" :data-text-tone="heroTextTone" :data-overlay-source="heroOverlay.source.value" :data-h-align="heroPayload(b).textAlignHorizontal || 'center'">
         <div v-if="heroPayload(b).imageUrl" class="hero__bg">
           <img :src="heroPayload(b).imageUrl" alt="" />
           <div
@@ -204,7 +223,7 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
             aria-hidden="true"
           ></div>
         </div>
-        <div ref="heroInnerEl" class="hero__inner container">
+        <div :ref="setHeroInnerEl" class="hero__inner container">
           <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).eyebrow }}</div>
           <h1 class="hero__title" :style="{ color: heroTextColor }">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span><span
