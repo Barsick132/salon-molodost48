@@ -195,7 +195,7 @@ const heroImageUrl = computed(() => {
             aria-hidden="true"
           ></div>
         </div>
-        <div class="hero__inner container" class="hero__inner container">
+        <div class="hero__inner container">
           <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow">{{ heroPayload(b).eyebrow }}</div>
           <h1 class="hero__title">
             <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span><span
@@ -521,20 +521,14 @@ const heroImageUrl = computed(() => {
 .hero__bg-overlay {
   position: absolute;
   inset: 0;
-     the image has been decoded and analysed. */
+  /* Fixed 2-layer black gradient: dense at the bottom (for CTAs),
+     softer at the top (for the eyebrow + nav). */
   background:
-    /* 0deg = bottom-to-top: dense black at the bottom, transparent
-       at the top. The composable will replace this inline with the
-       photo's colour-tinted version once it samples the image. */
-    linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 30%);
+    linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%);
   z-index: 1;
   pointer-events: none;
-  transition: background-image 0.4s ease;
 }
-
-   warm-black for light scrims). The accent portion of the headline
-   keeps the brand crimson regardless of tone — see below. */
 
 .hero__inner {
   position: relative;
