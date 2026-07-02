@@ -145,8 +145,13 @@ export function useHeroOverlay(
       apply(sample)
       source.value = myToken === token && ready.value ? 'sampled' : 'sampled'
       ready.value = true
-    } catch {
+    } catch (err) {
       if (myToken !== token) return
+      // Log the actual reason in dev so we can debug fallback use
+      // cases (CORS, decode, tainted canvas, etc).
+      if (typeof console !== 'undefined') {
+        console.warn('[heroOverlay] sampling failed, using fallback scrim', { url, err })
+      }
       style.value = defaultStyle()
       textColor.value = '#ffffff'
       mutedTextColor.value = 'rgba(255, 255, 255, 0.78)'
@@ -162,15 +167,42 @@ export function useHeroOverlay(
     if (cached && cached.complete && cached.naturalWidth > 0) return cached
 
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    // Only force CORS for cross-origin URLs. For same-origin images
+    // (which is our /media/* path), `crossOrigin = 'anonymous'`
+    // makes the browser do a CORS request anyway, and on some
+    // setups it taints the canvas even when the server returns
+    // proper CORS headers. Skipping it keeps the canvas clean and
+    // lets getImageData() read pixels freely.
+    if (!isSameOrigin(url)) {
+      img.crossOrigin = 'anonymous'
+    }
     img.decoding = 'async'
-    const fetchUrl = url.includes('?') ? `${url}&cors=${Date.now()}` : `${url}?cors=${Date.now()}`
-    imageCache.set(url, img)
+    // Cache-bust only matters when CORS is in play (different URL =
+    // no shared browser cache entry). For same-origin we don't need
+    // it and skipping it keeps the cache key stable.
+    const fetchUrl = isSameOrigin(url)
+      ? url
+      : (url.includes('?') ? `${url}&cors=${Date.now()}` : `${url}?cors=${Date.now()}`)
     return new Promise<HTMLImageElement>((resolve, reject) => {
-      img.onload = () => resolve(img)
+      img.onload = () => {
+        imageCache.set(url, img) // only cache after successful decode
+        resolve(img)
+      }
       img.onerror = () => reject(new Error('image load failed'))
       img.src = fetchUrl
     })
+  }
+
+  const isSameOrigin = (url: string): boolean => {
+    if (!url) return true
+    if (url.startsWith('/')) return true
+    if (typeof window === 'undefined') return true
+    try {
+      const u = new URL(url, window.location.origin)
+      return u.origin === window.location.origin
+    } catch {
+      return true
+    }
   }
 
   // ----- compose scrim + text colour from sample -----
