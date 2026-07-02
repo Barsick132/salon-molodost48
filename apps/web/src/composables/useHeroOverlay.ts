@@ -66,6 +66,12 @@ export type HeroOverlay = {
    * Falls back to the brand accent (#E11D48) on neutral photos.
    */
   accentColor: Ref<string>
+  /**
+   * Opposite-tone halo for the accent text. Dark halo for a light
+   * accent, light halo for a dark accent. Wired into text-shadow
+   * so eyebrow stays readable on any photo.
+   */
+  accentHalo: Ref<string>
 }
 
 type Sample = {
@@ -101,6 +107,11 @@ export function useHeroOverlay(
   // pair with the cover instead of fixed red competing with it.
   // Falls back to the brand accent on neutral photos.
   const accentColor = ref<string>('#E11D48')
+  // Halo colour around the eyebrow / title-accent text: opposite
+  // tone to the accent so the text-shadow always guarantees
+  // readability even when accent and photo land in the same
+  // brightness zone.
+  const accentHalo = ref<string>('rgba(0, 0, 0, 0.55)')
   const BRAND_ACCENT = '#E11D48'
 
   let currentUrl = ''
@@ -300,17 +311,19 @@ export function useHeroOverlay(
     }
 
     // Hero-local accent: derive from the photo's text-region dominant
-    // so eyebrow / title-accent / CTA / tick marks harmonise with the
-    // cover. On neutral (low-saturation) photos we keep the brand
-    // accent — anything more would feel arbitrary on a near-grey cover.
-    accentColor.value = deriveHeroAccent(
-      s.textRegionDominant,
-      // `textRegionDominant` already excludes near-neutral patches
-      // (we used it to set baseR/G/B above), so for the accent we
-      // want the raw colour to honour saturation properly.
+    // and the scrim colour. The accent sits ON TOP of the scrim, so
+    // we compare against effective bg (photo × (1-α) + scrim × α).
+    // Use the BOTTOM scrim alpha (0.85) because CTA primary lives at
+    // the bottom — that's the strictest test. If the accent passes
+    // there, it will pass everywhere above.
+    const accentPick = deriveHeroAccent(
       { r: dom.r, g: dom.g, b: dom.b },
+      { r: scrimR, g: scrimG, b: scrimB },
+      bottom,
       BRAND_ACCENT,
     )
+    accentColor.value = accentPick.color
+    accentHalo.value = accentPick.halo
   }
 
   // ----- observers -----
@@ -411,55 +424,103 @@ export function useHeroOverlay(
     { immediate: true },
   )
 
-  return { style, textColor, mutedTextColor, textTone, ready, source, lastSample, accentColor }
+  return { style, textColor, mutedTextColor, textTone, ready, source, lastSample, accentColor, accentHalo }
 }
 
 /**
  * deriveHeroAccent — pick the accent colour for the hero section
- * based on the photo's dominant colour in the text region.
+ * based on the photo's dominant colour and the scrim that will sit
+ * between them. Tries a series of candidates in order until one
+ * passes WCAG AA 4.5:1 against the EFFECTIVE background
+ * (photo + scrim blended), which is what the user actually sees.
  *
- * Algorithm:
- *   1. If the photo is near-neutral (low saturation), keep the brand
- *      accent — anything more would feel arbitrary on a near-grey cover.
- *   2. Otherwise take the photo's hue, boost saturation, and invert
- *      lightness so the accent lands in the opposite brightness zone
- *      from the photo. Result: an accent that belongs to the same
- *      colour family as the cover but always stands out from it.
- *   3. Clamp so we never accidentally produce something invisible
- *      (very dark + very saturated = hard to read on white text).
- *   4. Sanity check: if the derived accent lacks 3:1 contrast against
- *      the photo, fall back to the brand accent. WCAG AA UI minimum.
+ * Candidate order (first match wins):
+ *   1. Same hue, very light (l=0.92) — for dark covers
+ *   2. Same hue, very dark  (l=0.15) — for light covers
+ *   3. Complementary hue, mid lightness (180° opposite)
+ *   4. Split-complementary at +150° / +210°
+ *   5. Pure white
+ *   6. Pure black
+ *   7. Brand accent — last resort, even if it doesn't pass
+ *
+ * On near-neutral photos we skip the candidates and use the brand
+ * accent directly — anything derived would feel arbitrary.
+ *
+ * Returns the chosen colour PLUS a halo colour in `out.halo` —
+ * opposite-tone to the accent (light halo for dark accent, dark
+ * halo for light accent). The halo is used by text-shadow to add a
+ * safety net of contrast around the eyebrow / title-accent text.
  */
 function deriveHeroAccent(
   dominant: { r: number; g: number; b: number },
-  _photoForContrast: { r: number; g: number; b: number },
+  scrimColor: { r: number; g: number; b: number },
+  scrimAlpha: number,
   brandAccent: string,
-): string {
-  const { h, s, l } = rgbToHsl(dominant.r / 255, dominant.g / 255, dominant.b / 255)
+): { color: string; halo: string } {
+  // Effective background = photo × (1 - scrimAlpha) + scrim × scrimAlpha
+  // This is what the eye actually sees behind the accent element.
+  const bg: [number, number, number] = [
+    dominant.r * (1 - scrimAlpha) + scrimColor.r * scrimAlpha,
+    dominant.g * (1 - scrimAlpha) + scrimColor.g * scrimAlpha,
+    dominant.b * (1 - scrimAlpha) + scrimColor.b * scrimAlpha,
+  ]
+
+  const hslDom = rgbToHsl(dominant.r / 255, dominant.g / 255, dominant.b / 255)
 
   // Near-neutral photo: brand accent reads fine, no need to invent
   // a colour that wouldn't make sense against grey.
-  if (s < 0.18) return brandAccent
-
-  // Same hue, boosted saturation, inverted lightness.
-  // - Light photo (l > 0.5) → dark accent (clamp at l=0.18 floor)
-  // - Dark photo  (l < 0.5) → light accent (clamp at l=0.85 ceiling)
-  // Inverting brightness is the cheapest way to guarantee visual
-  // contrast within the same hue family.
-  const newS = Math.min(1, s * 1.25 + 0.1)
-  const newL = l > 0.5
-    ? Math.max(0.18, l - 0.45)
-    : Math.min(0.85, l + 0.5)
-  const [r, g, b] = hslToRgb(h, newS, newL)
-
-  // WCAG-style sanity check: derived accent vs photo. If the derived
-  // accent is too close in luminance to the photo (would disappear
-  // when placed against it), fall back to brand accent.
-  if (contrastRatio([r, g, b], [dominant.r, dominant.g, dominant.b]) < 1.5) {
-    return brandAccent
+  if (hslDom.s < 0.18) {
+    return { color: brandAccent, halo: haloForLuminance(luminanceOf(brandAccent)) }
   }
 
-  return rgbToHex(r, g, b)
+  const boostedS = Math.min(1, hslDom.s * 1.3 + 0.1)
+
+  const candidates: Array<[number, number, number]> = [
+    // Same hue, very light (good for dark covers)
+    hslToRgb(hslDom.h, boostedS, 0.9),
+    // Same hue, very dark (good for light covers)
+    hslToRgb(hslDom.h, boostedS, 0.15),
+    // Complementary — 180° around the wheel
+    hslToRgb((hslDom.h + 0.5) % 1, 0.75, 0.55),
+    // Split-complementary — +150° / +210° (warm/cool twins)
+    hslToRgb((hslDom.h + 0.42) % 1, 0.7, 0.55),
+    hslToRgb((hslDom.h + 0.58) % 1, 0.7, 0.55),
+    // Pure white
+    [255, 255, 255],
+    // Pure black
+    [0, 0, 0],
+  ]
+
+  for (const c of candidates) {
+    if (contrastRatio(c, bg) >= 4.5) {
+      const hex = rgbToHex(c[0], c[1], c[2])
+      return { color: hex, halo: haloForLuminance(relativeLuminance(c[0], c[1], c[2])) }
+    }
+  }
+
+  // No candidate passes 4.5:1 — fall back to brand accent (even if
+  // it doesn't pass). Halo is always the opposite tone so the
+  // text-shadow guarantees some readability.
+  return { color: brandAccent, halo: haloForLuminance(luminanceOf(brandAccent)) }
+}
+
+/**
+ * haloForLuminance — return a dark text-shadow for light accents
+ * and a light text-shadow for dark accents. Returns rgba CSS string.
+ */
+function haloForLuminance(l: number): string {
+  return l > 0.55
+    ? 'rgba(0, 0, 0, 0.65)'
+    : 'rgba(255, 255, 255, 0.85)'
+}
+
+/** luminanceOf — accept any CSS colour string and return its
+ *  relative luminance. Used to pick a halo for the brand accent. */
+function luminanceOf(css: string): number {
+  const [r, g, b] = parseHex(css.replace('#', '').slice(0, 7).padEnd(6, '0'))
+    .map((v) => v) as unknown as [number, number, number]
+  // If parseHex returns from a 3-char hex, expand it manually
+  return relativeLuminance(r, g, b)
 }
 
 /**
