@@ -207,8 +207,14 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
         <div ref="heroInnerEl" class="hero__inner container">
           <div v-if="heroPayload(b).eyebrow" class="hero__eyebrow" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).eyebrow }}</div>
           <h1 class="hero__title" :style="{ color: heroTextColor }">
-            <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span>
-            <span v-if="heroPayload(b).titleAccent" class="hero__title-accent">{{ heroPayload(b).titleAccent }}</span>
+            <span v-if="heroPayload(b).titleBefore" class="hero__title-before">{{ heroPayload(b).titleBefore }}</span><span
+              v-if="heroPayload(b).titleBefore && heroPayload(b).titleAccent"
+              aria-hidden="true"
+              class="hero__title-sep"
+            > </span><span
+              v-if="heroPayload(b).titleAccent"
+              class="hero__title-accent"
+            >{{ heroPayload(b).titleAccent }}</span>
             <span v-if="!heroPayload(b).titleBefore && !heroPayload(b).titleAccent && heroPayload(b).title" class="hero__title-before">{{ heroPayload(b).title }}</span>
           </h1>
           <p v-if="heroPayload(b).lead" class="hero__lead" :style="{ color: heroMutedTextColor }">{{ heroPayload(b).lead }}</p>
@@ -605,13 +611,32 @@ const heroMutedTextColor = computed(() => heroOverlay.mutedTextColor.value);
   margin: 0 auto 1.1rem;
   color: #fff;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
+  text-wrap: balance;
+  overflow-wrap: break-word;
+  /* Editorial: never let the headline overflow its column even if
+     the editor pastes something unexpectedly long. */
+  max-width: 100%;
 }
 /* Narrower, calmer title on left/right editorial modes. */
 .hero--h-left .hero__title,
 .hero--h-right .hero__title {
+  /* Bumped from 640 → 780px so a 4rem headline with two segments
+     («…не возраст.» + «Это состояние.») fits without overflowing.
+     Combined with text-wrap: balance, the wrap looks intentional
+     rather than awkwardly mid-phrase. */
   font-size: clamp(2.6rem, 5.2vw, 4rem);
   margin: 0 0 1rem;
-  max-width: 640px;
+  max-width: 780px;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+/* The literal space between titleBefore and titleAccent. We render
+   it as a real element (rather than relying on inline whitespace,
+   which Vue collapses) so the wrap point is *between* the two halves
+   of the headline, never mid-phrase inside one of them. */
+.hero__title-sep {
+  display: inline;
+  white-space: pre;
 }
 .hero--h-left .hero__title { margin-left: 0; margin-right: auto; }
 .hero--h-right .hero__title { margin-left: auto; margin-right: 0; }
