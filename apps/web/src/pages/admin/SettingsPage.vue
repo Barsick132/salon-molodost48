@@ -19,6 +19,21 @@ import { api, ApiError } from '@/api/client';
 //   "пн-сб 09:00–21:00, вс — выходной"
 const PLACEHOLDER_HOURS = 'пн-пт 10:00–20:00, сб-вс выходной'
 
+// Accent colour presets for the picker UI. Each one is balanced for
+// the dark theme (saturation + lightness picked together) so nothing
+// looks washed out or harsh on the surface. The default #E11D48
+// (rose-600) is the current brand colour and is always present.
+const ACCENT_PRESETS = [
+  '#E11D48', // rose-600, current default
+  '#DC2626', // red-600, pure fire
+  '#F59E0B', // amber-500, warm gold
+  '#10B981', // emerald-500, fresh green
+  '#0EA5E9', // sky-500, cool blue
+  '#8B5CF6', // violet-500, mystical purple
+  '#EC4899', // pink-500, flirty pink
+  '#F97316', // orange-500, citrus pop
+] as const
+
 type Section = 'contact' | 'map' | 'visibility' | 'brand' | 'cta';
 const saving = ref<Record<Section, boolean>>({ contact: false, map: false, visibility: false, brand: false, cta: false });
 const message = ref<Record<Section, { type: 'ok' | 'error'; text: string } | null>>({
@@ -116,6 +131,8 @@ const cta = ref({
   ctaShowInBanner: true,
   ctaShowInCtaStrip: true,
 });
+
+const accentPresets = ACCENT_PRESETS
 
 // Map preview iframe src. Yandex has a free map-widget generator that
 // takes a query string. When provider = "yandex" we point the iframe
@@ -268,18 +285,71 @@ onMounted(loadAll);
       <p class="page-sub">Бренд, контакты, карта и видимость разделов</p>
     </header>
 
-    <!-- ====== BRAND ====== -->
-    <section class="card">
+    <!-- ====== DESIGN ====== -->
+    <section class="card card--accent">
       <header class="card__head">
         <div>
-          <h2>Бренд</h2>
-          <p>Название, логотип, цвета, SEO</p>
+          <h2>Дизайн</h2>
+          <p>Акцентный цвет — определяет кнопки, ссылки, hover-состояния и hero accent.</p>
         </div>
         <button class="btn btn--primary" :disabled="saving.brand" @click="saveBrand">
           {{ saving.brand ? 'Сохраняем…' : 'Сохранить' }}
         </button>
       </header>
       <div v-if="message.brand" :class="['flash', `flash--${message.brand.type}`]">{{ message.brand.text }}</div>
+
+      <div class="accent-picker">
+        <label class="accent-picker__swatch-wrap">
+          <input
+            v-model="brand.accentColor"
+            type="color"
+            class="accent-picker__native"
+            aria-label="Выбор акцентного цвета"
+          />
+          <span class="accent-picker__swatch" :style="{ background: brand.accentColor }" />
+        </label>
+        <div class="accent-picker__controls">
+          <label class="field">
+            <span class="field__label">HEX</span>
+            <input
+              v-model="brand.accentColor"
+              class="field__input field__input--mono"
+              spellcheck="false"
+              maxlength="7"
+            />
+          </label>
+          <div class="accent-picker__presets">
+            <button
+              v-for="preset in accentPresets"
+              :key="preset"
+              type="button"
+              class="accent-picker__preset"
+              :style="{ background: preset }"
+              :aria-label="`Пресет ${preset}`"
+              @click="brand.accentColor = preset"
+            />
+          </div>
+        </div>
+        <div class="accent-picker__preview">
+          <span class="field__hint">Где используется</span>
+          <div class="accent-picker__chips">
+            <span class="accent-chip accent-chip--bg" :style="{ background: brand.accentColor }">Кнопка</span>
+            <span class="accent-chip accent-chip--text" :style="{ color: brand.accentColor }">Ссылка / hover</span>
+            <span class="accent-chip accent-chip--border" :style="{ borderColor: brand.accentColor }">Граница</span>
+            <span class="accent-chip accent-chip--dot" :style="{ background: brand.accentColor }" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== BRAND ====== -->
+    <section class="card">
+      <header class="card__head">
+        <div>
+          <h2>Бренд</h2>
+          <p>Название, слоган, логотип, SEO</p>
+        </div>
+      </header>
 
       <!-- Logo + Favicon uploaders -->
       <div class="grid grid--two">
@@ -320,11 +390,6 @@ onMounted(loadAll);
         <label class="field">
           <span class="field__label">Слоган</span>
           <input v-model="brand.brandTagline" class="field__input" />
-        </label>
-        <label class="field">
-          <span class="field__label">Акцентный цвет</span>
-          <input v-model="brand.accentColor" class="field__input" type="color" />
-          <span class="field__hint">Цвет кнопок и акцентов</span>
         </label>
         <label class="field">
           <span class="field__label">SEO title</span>
@@ -539,6 +604,113 @@ onMounted(loadAll);
 }
 .card__head h2 { font-size: 1.05rem; font-weight: 600; }
 .card__head p { font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.15rem; }
+
+/* ===== Accent colour picker (Дизайн card) =====
+   The native <input type="color"> is visually tiny and ugly on every
+   browser, so we hide it and overlay a big swatch button that proxies
+   clicks to it. The HEX input + preset chips give precise control
+   without making people hand-type a 6-digit hex. */
+.card--accent { border-top: 2px solid var(--color-accent); }
+
+.accent-picker {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+.accent-picker__swatch-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.accent-picker__swatch-wrap:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px -4px rgba(0, 0, 0, 0.5);
+}
+.accent-picker__swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+/* Native picker is invisible but receives clicks via the wrap. */
+.accent-picker__native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+.accent-picker__controls { display: flex; flex-direction: column; gap: 0.85rem; }
+.field__input--mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.04em; text-transform: uppercase; }
+
+.accent-picker__presets {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.4rem;
+}
+.accent-picker__preset {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  padding: 0;
+}
+.accent-picker__preset:hover {
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.accent-picker__preview { display: flex; flex-direction: column; gap: 0.55rem; }
+.accent-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.accent-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.accent-chip--bg { color: #fff; }
+.accent-chip--text {
+  background: var(--color-surface-2, #1f1f1f);
+  border: 1px solid var(--color-border, #2a2a2a);
+}
+.accent-chip--border {
+  background: transparent;
+  color: var(--color-text-primary, #fff);
+  border: 2px solid;
+}
+.accent-chip--dot {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+@media (max-width: 800px) {
+  .accent-picker {
+    grid-template-columns: 1fr;
+  }
+  .accent-picker__swatch-wrap { width: 72px; height: 72px; }
+  .accent-picker__presets { grid-template-columns: repeat(8, 1fr); }
+}
 
 .grid {
   display: grid;
